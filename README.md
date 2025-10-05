@@ -1,135 +1,114 @@
-# Turborepo starter
+# 2D Metaverse 🌍
 
-This Turborepo starter is maintained by the Turborepo core team.
+A modern, scalable 2D metaverse platform where users can create virtual spaces, interact with elements, and build immersive experiences.
 
-## Using this example
+## ✨ Features
 
-Run the following command:
+- 🚀 **Real-time multiplayer spaces** with dynamic element placement
+- 👤 **User management** with customizable avatars
+- 🏗️ **Space creation** and management tools
+- ⚡ **Admin panel** for content management
+- 🎨 **Custom elements** and interactive objects
+- 🗄️ **PostgreSQL database** with Prisma ORM
+- 📱 **REST API** with comprehensive endpoints
+- 🎯 **Type-safe** development with TypeScript
 
-```sh
-npx create-turbo@latest
+## 🚀 Quick Start
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd 2d-metaverse
+
+# Install dependencies
+npm install -g pnpm  # if not installed
+pnpm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your Neon database URL
+
+# Initialize database
+cd packages/db
+pnpm db:generate
+pnpm db:push
+
+# Start development
+cd ../..
+pnpm dev
 ```
 
-## What's inside?
+**API Server:** http://localhost:3000  
+**Web App:** http://localhost:3001
 
-This Turborepo includes the following packages/apps:
+## 📚 Documentation
 
-### Apps and Packages
+📋 **[PROJECT.md](./PROJECT.md)** - Complete setup guide, API documentation, and development workflow
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+📋 **[postman-collection.json](./postman-collection.json)** - Import into Postman for API testing
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## 🏗️ Architecture
 
-### Utilities
+This is a **monorepo** powered by:
 
-This Turborepo has some additional tools already setup for you:
+- **🏃‍♂️ Turborepo** - Build system and task orchestration
+- **📦 pnpm** - Fast, efficient package manager
+- **⚡ Express.js** - HTTP API server
+- **🎯 Next.js** - Modern React framework
+- **🗄️ Prisma + Neon** - Database ORM with PostgreSQL
+- **📘 TypeScript** - Type safety across all packages
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+## 🔌 API Overview
 
-### Build
+### Authentication
+- User registration and login
+- Avatar selection and management
 
-To build all apps and packages, run the following command:
+### Space Management  
+- Create and manage virtual spaces
+- Add/remove interactive elements
+- Real-time space updates
 
-```
-cd my-turborepo
+### Admin Operations
+- Element and avatar creation
+- Map template management
+- User administration
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
+## 🛠️ Development Commands
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
-```
+```bash
+# Install all dependencies
+pnpm install
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+# Start development servers
+pnpm dev
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+# Build for production
+pnpm build
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+# Database operations
+cd packages/db
+pnpm db:generate    # Generate Prisma client
+pnpm db:push       # Sync schema to database
+pnpm db:studio     # Open database GUI
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+## 🚀 Deployment
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+See [PROJECT.md](./PROJECT.md) for detailed production deployment instructions.
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+## 🤝 Contributing
 
-### Remote Caching
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+## 📄 License
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+---
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+Built with ❤️ using modern web technologies
