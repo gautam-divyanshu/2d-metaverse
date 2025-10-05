@@ -1,17 +1,17 @@
-# 2D Metaverse 🌍
+# 2D Metaverse
 
 A modern, scalable 2D metaverse platform where users can create virtual spaces, interact with elements, and build immersive experiences.
 
-## ✨ Features
+## Features
 
-- 🚀 **Real-time multiplayer spaces** with dynamic element placement
-- 👤 **User management** with customizable avatars
-- 🏗️ **Space creation** and management tools
-- ⚡ **Admin panel** for content management
-- 🎨 **Custom elements** and interactive objects
-- 🗄️ **PostgreSQL database** with Prisma ORM
-- 📱 **REST API** with comprehensive endpoints
-- 🎯 **Type-safe** development with TypeScript
+- **Real-time multiplayer spaces** with dynamic element placement
+- **User management** with customizable avatars
+- **Space creation** and management tools
+- **Admin panel** for content management
+- **Custom elements** and interactive objects
+- **PostgreSQL database** with Prisma ORM
+- **REST API** with comprehensive endpoints
+- **Type-safe** development with TypeScript
 
 ## 🚀 Quick Start
 
@@ -41,22 +41,22 @@ pnpm dev
 **API Server:** http://localhost:3000  
 **Web App:** http://localhost:3001
 
-## 📚 Documentation
+## Documentation
 
 📋 **[PROJECT.md](./PROJECT.md)** - Complete setup guide, API documentation, and development workflow
 
 📋 **[postman-collection.json](./postman-collection.json)** - Import into Postman for API testing
 
-## 🏗️ Architecture
+## Architecture
 
 This is a **monorepo** powered by:
 
-- **🏃‍♂️ Turborepo** - Build system and task orchestration
-- **📦 pnpm** - Fast, efficient package manager
-- **⚡ Express.js** - HTTP API server
-- **🎯 Next.js** - Modern React framework
-- **🗄️ Prisma + Neon** - Database ORM with PostgreSQL
-- **📘 TypeScript** - Type safety across all packages
+- **Turborepo** - Build system and task orchestration
+- **pnpm** - Fast, efficient package manager
+- **Express.js** - HTTP API server
+- **Next.js** - Modern React framework
+- **Prisma + NeonDB** - Database ORM with PostgreSQL
+- **TypeScript** - Type safety across all packages
 
 ## 🔌 API Overview
 
@@ -92,23 +92,3 @@ pnpm db:generate    # Generate Prisma client
 pnpm db:push       # Sync schema to database
 pnpm db:studio     # Open database GUI
 ```
-
-## 🚀 Deployment
-
-See [PROJECT.md](./PROJECT.md) for detailed production deployment instructions.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-Built with ❤️ using modern web technologies
