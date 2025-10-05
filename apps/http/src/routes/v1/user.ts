@@ -1,11 +1,65 @@
 import { Router } from "express";
+import { PrismaClient } from 'db';
 
-export const userRouter = Router();
+const prisma = new PrismaClient();
 
-userRouter.post("/metadata", (req, res) => {
+export const userRouter: Router = Router();
 
+// Update user metadata (avatar)
+userRouter.post("/metadata", async (req, res) => {
+    try {
+        const { userId, avatarId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ error: "User ID is required" });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { avatarId },
+            include: { avatar: true }
+        });
+
+        res.json({ 
+            message: "User metadata updated", 
+            user: {
+                id: updatedUser.id,
+                username: updatedUser.username,
+                avatar: updatedUser.avatar
+            }
+        });
+    } catch (error) {
+        console.error('Update metadata error:', error);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
 
-userRouter.get("/metadata/bulk", (req, res) => {
+// Get bulk user metadata
+userRouter.get("/metadata/bulk", async (req, res) => {
+    try {
+        const { userIds } = req.query;
+        
+        if (!userIds) {
+            return res.status(400).json({ error: "User IDs are required" });
+        }
 
+        const userIdArray = Array.isArray(userIds) ? userIds : [userIds];
+        const numericIds = userIdArray.map(id => parseInt(id as string));
+        
+        const users = await prisma.user.findMany({
+            where: {
+                id: { in: numericIds }
+            },
+            select: {
+                id: true,
+                username: true,
+                avatar: true
+            }
+        });
+
+        res.json({ users });
+    } catch (error) {
+        console.error('Bulk metadata fetch error:', error);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
