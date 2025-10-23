@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  user
+}
+
+model Avatar {
+  id       Int    @id @default(autoincrement())
+  imageUrl String @map("image_url")
+  name     String @db.VarChar(255)
+  users    User[]
+
+  @@map("avatars")
+}
+
+model Element {
+  id            Int            @id @default(autoincrement())
+  width         Int
+  height        Int
+  imageUrl      String         @map("image_url")
+  isStatic      Boolean        @default(false) @map("is_static")
+  mapElements   MapElement[]
+  spaceElements SpaceElement[]
+
+  @@map("elements")
+}
+
+model Map {
+  id          Int          @id @default(autoincrement())
+  name        String       @db.VarChar(255)
+  width       Int
+  height      Int
+  mapElements MapElement[]
+
+  @@map("maps")
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  username String   @unique @db.VarChar(255)
+  password String
+  avatarId Int?     @map("avatar_id")
+  role     UserRole @default(user)
+  avatar   Avatar?  @relation(fields: [avatarId], references: [id], onDelete: SetNull)
+  spaces   Space[]  @relation("SpaceOwner")
+
+  @@map("users")
+}
+
+model Space {
+  id        Int            @id @default(autoincrement())
+  name      String         @db.VarChar(255)
+  width     Int
+  height    Int
+  thumbnail String?
+  ownerId   Int            @map("owner_id")
+  owner     User           @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  elements  SpaceElement[]
+
+  @@map("spaces")
+}
+
+model MapElement {
+  id        Int     @id @default(autoincrement())
+  mapId     Int     @map("map_id")
+  elementId Int     @map("element_id")
+  x         Int
+  y         Int
+  map       Map     @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  element   Element @relation(fields: [elementId], references: [id], onDelete: Cascade)
+
+  @@map("map_elements")
+}
+
+model SpaceElement {
+  id        Int     @id @default(autoincrement())
+  spaceId   Int     @map("space_id")
+  elementId Int     @map("element_id")
+  x         Int
+  y         Int
+  space     Space   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  element   Element @relation(fields: [elementId], references: [id], onDelete: Cascade)
+
+  @@map("space_elements")
+}
