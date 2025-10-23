@@ -1,65 +1,53 @@
 import { Router } from "express";
-import { PrismaClient } from 'db';
+import { UpdateMetadataSchema } from "../../types";
+import client from "@repo/db/client";
+import { userMiddleware } from "../../middleware/user";
 
-const prisma = new PrismaClient();
+export const userRouter = Router();
 
-export const userRouter: Router = Router();
-
-// Update user metadata (avatar)
-userRouter.post("/metadata", async (req, res) => {
-    try {
-        const { userId, avatarId } = req.body;
-        
-        if (!userId) {
-            return res.status(400).json({ error: "User ID is required" });
-        }
-
-        const updatedUser = await prisma.user.update({
-            where: { id: userId },
-            data: { avatarId },
-            include: { avatar: true }
-        });
-
-        res.json({ 
-            message: "User metadata updated", 
-            user: {
-                id: updatedUser.id,
-                username: updatedUser.username,
-                avatar: updatedUser.avatar
-            }
-        });
-    } catch (error) {
-        console.error('Update metadata error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+userRouter.post("/metadata", userMiddleware, async (req, res) => {
+  const parsedData = UpdateMetadataSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    console.log("parsed data incorrect");
+    res.status(400).json({ message: "Validation failed" });
+    return;
+  }
+  try {
+    await client.user.update({
+      where: {
+        id: req.userId,
+      },
+      data: {
+        avatarId: parsedData.data.avatarId,
+      },
+    });
+    res.json({ message: "Metadata updated" });
+  } catch (e) {
+    console.log("error");
+    res.status(400).json({ message: "Internal server error" });
+  }
 });
 
-// Get bulk user metadata
 userRouter.get("/metadata/bulk", async (req, res) => {
-    try {
-        const { userIds } = req.query;
-        
-        if (!userIds) {
-            return res.status(400).json({ error: "User IDs are required" });
-        }
+  const userIdString = (req.query.ids ?? "[]") as string;
+  const userIds = userIdString.slice(1, userIdString?.length - 1).split(",");
+  console.log(userIds);
+  const metadata = await client.user.findMany({
+    where: {
+      id: {
+        in: userIds,
+      },
+    },
+    select: {
+      avatar: true,
+      id: true,
+    },
+  });
 
-        const userIdArray = Array.isArray(userIds) ? userIds : [userIds];
-        const numericIds = userIdArray.map(id => parseInt(id as string));
-        
-        const users = await prisma.user.findMany({
-            where: {
-                id: { in: numericIds }
-            },
-            select: {
-                id: true,
-                username: true,
-                avatar: true
-            }
-        });
-
-        res.json({ users });
-    } catch (error) {
-        console.error('Bulk metadata fetch error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  res.json({
+    avatars: metadata.map((m) => ({
+      userId: m.id,
+      avatarId: m.avatar?.imageUrl,
+    })),
+  });
 });

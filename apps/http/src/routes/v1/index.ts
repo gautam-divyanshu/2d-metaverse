@@ -1,113 +1,111 @@
 import { Router } from "express";
-import { userRouter } from "./user.js";
-import { spaceRouter } from "./space.js";
-import { adminRouter } from "./admin.js";
-import { PrismaClient } from 'db';
+import { userRouter } from "./user";
+import { spaceRouter } from "./space";
+import { adminRouter } from "./admin";
+import { SigninSchema, SignupSchema } from "../../types";
+import { hash, compare } from "../../scrypt";
+import client from "@repo/db/client";
+import jwt from "jsonwebtoken";
+import { JWT_PASSWORD } from "../../config";
 
-const prisma = new PrismaClient();
+export const router = Router();
 
-export const router: Router = Router();
-
-// Sign in route - authenticate user
-router.post("/signin", async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        
-        if (!username || !password) {
-            return res.status(400).json({ error: "Username and password are required" });
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { username },
-            include: { avatar: true }
-        });
-
-        if (!user || user.password !== password) {
-            return res.status(401).json({ error: "Invalid credentials" });
-        }
-
-        res.json({ 
-            message: "Sign in successful", 
-            user: {
-                id: user.id,
-                username: user.username,
-                role: user.role,
-                avatar: user.avatar
-            }
-        });
-    } catch (error) {
-        console.error('Signin error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-// Sign up route - create new user
 router.post("/signup", async (req, res) => {
-    try {
-        const { username, password, avatarId } = req.body;
-        
-        if (!username || !password) {
-            return res.status(400).json({ error: "Username and password are required" });
-        }
+  console.log("inside signup");
+  // check the user
+  const parsedData = SignupSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    console.log("parsed data incorrect");
+    res.status(400).json({ message: "Validation failed" });
+    return;
+  }
 
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { username }
-        });
+  const hashedPassword = await hash(parsedData.data.password);
 
-        if (existingUser) {
-            return res.status(409).json({ error: "Username already exists" });
-        }
-
-        const newUser = await prisma.user.create({
-            data: {
-                username,
-                password, // In production, hash this password!
-                avatarId: avatarId || null,
-                role: 'user'
-            },
-            include: { avatar: true }
-        });
-
-        res.status(201).json({ 
-            message: "User created successfully", 
-            user: {
-                id: newUser.id,
-                username: newUser.username,
-                role: newUser.role,
-                avatar: newUser.avatar
-            }
-        });
-    } catch (error) {
-        console.error('Signup error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  try {
+    const user = await client.user.create({
+      data: {
+        username: parsedData.data.username,
+        password: hashedPassword,
+        role: parsedData.data.type === "admin" ? "Admin" : "User",
+      },
+    });
+    res.json({
+      userId: user.id,
+    });
+  } catch (e) {
+    console.log("erroer thrown");
+    console.log(e);
+    res.status(400).json({ message: "User already exists" });
+  }
 });
 
-// Get all elements
+router.post("/signin", async (req, res) => {
+  const parsedData = SigninSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    res.status(403).json({ message: "Validation failed" });
+    return;
+  }
+
+  try {
+    const user = await client.user.findUnique({
+      where: {
+        username: parsedData.data.username,
+      },
+    });
+
+    if (!user) {
+      res.status(403).json({ message: "User not found" });
+      return;
+    }
+    const isValid = await compare(parsedData.data.password, user.password);
+
+    if (!isValid) {
+      res.status(403).json({ message: "Invalid password" });
+      return;
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        role: user.role,
+      },
+      JWT_PASSWORD
+    );
+
+    res.json({
+      token,
+    });
+  } catch (e) {
+    res.status(400).json({ message: "Internal server error" });
+  }
+});
+
 router.get("/elements", async (req, res) => {
-    try {
-        const elements = await prisma.element.findMany();
-        res.json({ elements });
-    } catch (error) {
-        console.error('Elements fetch error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  const elements = await client.element.findMany();
+
+  res.json({
+    elements: elements.map((e) => ({
+      id: e.id,
+      imageUrl: e.imageUrl,
+      width: e.width,
+      height: e.height,
+      static: e.static,
+    })),
+  });
 });
 
-// Get all avatars
 router.get("/avatars", async (req, res) => {
-    try {
-        const avatars = await prisma.avatar.findMany();
-        res.json({ avatars });
-    } catch (error) {
-        console.error('Avatars fetch error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  const avatars = await client.avatar.findMany();
+  res.json({
+    avatars: avatars.map((x) => ({
+      id: x.id,
+      imageUrl: x.imageUrl,
+      name: x.name,
+    })),
+  });
 });
 
-router.use("/users", userRouter);
-router.use("/spaces", spaceRouter);
-router.use("/admins", adminRouter);
-
-
+router.use("/user", userRouter);
+router.use("/space", spaceRouter);
+router.use("/admin", adminRouter);
