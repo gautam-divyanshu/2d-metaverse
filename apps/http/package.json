@@ -17,7 +17,7 @@
     "@types/express": "^5.0.3",
     "express": "^5.1.0",
     "typescript": "^5.9.3",
-    "db": "workspace:*",
+    "@repo/db": "workspace:*",
     "dotenv": "^16.4.5",
     "tsx": "^4.19.1"
   }

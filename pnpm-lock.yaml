@@ -20,12 +20,12 @@ importers:
 
   apps/http:
     dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@types/express':
         specifier: ^5.0.3
         version: 5.0.3
-      db:
-        specifier: workspace:*
-        version: link:../../packages/db
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
