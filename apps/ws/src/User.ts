@@ -18,8 +18,8 @@ export class User {
     public id: string;
     public userId?: string;
     private spaceId?: string;
-    private x: number;
-    private y: number;
+    public x: number;
+    public y: number;
     private ws: WebSocket;
 
     constructor(ws: WebSocket) {
@@ -78,8 +78,9 @@ export class User {
                     console.log("jouin receiverdfd 4")
                     this.spaceId = spaceId
                     RoomManager.getInstance().addUser(spaceId, this);
-                    this.x = Math.floor(Math.random() * space?.width);
-                    this.y = Math.floor(Math.random() * space?.height);
+                    // Spawn within a smaller area for testing (20x15 grid for 800x600 canvas with 40px grid)
+                    this.x = Math.floor(Math.random() * Math.min(20, space?.width || 20));
+                    this.y = Math.floor(Math.random() * Math.min(15, space?.height || 15));
                     this.send({
                         type: "space-joined",
                         payload: {
@@ -87,7 +88,8 @@ export class User {
                                 x: this.x,
                                 y: this.y
                             },
-                            users: RoomManager.getInstance().rooms.get(spaceId)?.filter(x => x.id !== this.id)?.map((u) => ({id: u.id})) ?? []
+                            userId: this.userId,
+                            users: RoomManager.getInstance().rooms.get(spaceId)?.filter(x => x.id !== this.id)?.map((u) => ({id: u.id, userId: u.userId, x: u.x, y: u.y})) ?? []
                         }
                     });
                     console.log("jouin receiverdf5")
@@ -101,16 +103,44 @@ export class User {
                     }, this, this.spaceId!);
                     break;
                 case "move":
+                    console.log(`Move request received from user ${this.userId}: (${this.x}, ${this.y}) -> (${parsedData.payload.x}, ${parsedData.payload.y})`);
                     const moveX = parsedData.payload.x;
                     const moveY = parsedData.payload.y;
                     const xDisplacement = Math.abs(this.x - moveX);
                     const yDisplacement = Math.abs(this.y - moveY);
+                    
+                    // Validate bounds (20x15 for testing)
+                    if (moveX < 0 || moveX >= 20 || moveY < 0 || moveY >= 15) {
+                        console.log(`Movement rejected - out of bounds: (${moveX}, ${moveY})`);
+                        this.send({
+                            type: "movement-rejected",
+                            payload: {
+                                x: this.x,
+                                y: this.y
+                            }
+                        });
+                        return;
+                    }
+                    
                     if ((xDisplacement == 1 && yDisplacement== 0) || (xDisplacement == 0 && yDisplacement == 1)) {
+                        console.log(`Movement accepted: (${this.x}, ${this.y}) -> (${moveX}, ${moveY})`);
                         this.x = moveX;
                         this.y = moveY;
+                        
+                        // Send acknowledgment to the moving user
+                        this.send({
+                            type: "movement-accepted",
+                            payload: {
+                                x: this.x,
+                                y: this.y
+                            }
+                        });
+                        
+                        // Broadcast to other users
                         RoomManager.getInstance().broadcast({
                             type: "movement",
                             payload: {
+                                userId: this.userId,
                                 x: this.x,
                                 y: this.y
                             }
@@ -118,6 +148,7 @@ export class User {
                         return;
                     }
                     
+                    console.log(`Movement rejected - invalid displacement: x=${xDisplacement}, y=${yDisplacement}`);
                     this.send({
                         type: "movement-rejected",
                         payload: {
