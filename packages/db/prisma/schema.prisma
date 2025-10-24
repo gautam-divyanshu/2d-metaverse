@@ -17,21 +17,25 @@ enum UserRole {
 }
 
 model Avatar {
-  id       Int     @id @default(autoincrement())
-  imageUrl String  @map("image_url")
-  name     String  @db.VarChar(255)
-  users    User[]
+  id        Int     @id @default(autoincrement())
+  imageUrl  String  @map("image_url")
+  name      String  @db.VarChar(255)
+  creatorId Int     @map("creator_id")
+  creator   User    @relation("AvatarCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  users     User[]  @relation("UserAvatar")
 
   @@map("avatars")
 }
 
 model Element {
-  id           Int            @id @default(autoincrement())
-  width        Int
-  height       Int
-  imageUrl     String         @map("image_url")
-  isStatic     Boolean        @default(false) @map("is_static")
-  mapElements  MapElement[]
+  id            Int            @id @default(autoincrement())
+  width         Int
+  height        Int
+  imageUrl      String         @map("image_url")
+  isStatic      Boolean        @default(false) @map("is_static")
+  creatorId     Int            @map("creator_id")
+  creator       User           @relation("ElementCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  mapElements   MapElement[]
   spaceElements SpaceElement[]
 
   @@map("elements")
@@ -42,19 +46,24 @@ model Map {
   name        String       @db.VarChar(255)
   width       Int
   height      Int
+  creatorId   Int          @map("creator_id")
+  creator     User         @relation("MapCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   mapElements MapElement[]
 
   @@map("maps")
 }
 
 model User {
-  id       Int      @id @default(autoincrement())
-  username String   @unique @db.VarChar(255)
-  password String
-  avatarId Int?     @map("avatar_id")
-  role     UserRole @default(user)
-  avatar   Avatar?  @relation(fields: [avatarId], references: [id], onDelete: SetNull)
-  spaces   Space[]  @relation("SpaceOwner")
+  id              Int       @id @default(autoincrement())
+  username        String    @unique @db.VarChar(255)
+  password        String
+  avatarId        Int?      @map("avatar_id")
+  role            UserRole  @default(user)
+  avatar          Avatar?   @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
+  spaces          Space[]   @relation("SpaceOwner")
+  createdAvatars  Avatar[]  @relation("AvatarCreator")
+  createdElements Element[] @relation("ElementCreator")
+  createdMaps     Map[]     @relation("MapCreator")
 
   @@map("users")
 }

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 export const SignInPage = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -12,6 +13,23 @@ export const SignInPage = () => {
   })
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, authLoading, navigate])
+
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,9 +48,13 @@ export const SignInPage = () => {
       const data = await response.json()
 
       if (response.ok) {
-        // Store token in localStorage
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user || { username: formData.username }))
+        // Use auth context to store token and user info
+        login(data.token, {
+          id: data.userId,
+          username: formData.username,
+          role: data.role || 'user',
+          avatarId: data.avatarId
+        })
         
         // Navigate to dashboard
         navigate('/dashboard')
@@ -55,11 +77,11 @@ export const SignInPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
       </div>
 
       <motion.div
@@ -80,7 +102,7 @@ export const SignInPage = () => {
         <div className="glass-effect p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-            <p className="text-white/70">Sign in to your MetaVerse account</p>
+            <p className="text-white/70">Sign in to your 2D Metaverse account</p>
           </div>
 
           {error && (

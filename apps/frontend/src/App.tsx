@@ -1,21 +1,63 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import { LandingPage } from './pages/LandingPage'
 import { SignInPage } from './pages/SignInPage'
 import { SignUpPage } from './pages/SignUpPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { SpaceViewPage } from './pages/SpaceViewPage'
+import { SpaceEditorPage } from './pages/SpaceEditorPage'
+import { AdminPanelPage } from './pages/AdminPanelPage'
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/signin" element={<SignInPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-        </Routes>
-      </div>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen">
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/signin" element={<SignInPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/space/:spaceId" 
+              element={
+                <ProtectedRoute>
+                  <SpaceViewPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/space/:spaceId/edit" 
+              element={
+                <ProtectedRoute>
+                  <SpaceEditorPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminPanelPage />
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   )
 }
 

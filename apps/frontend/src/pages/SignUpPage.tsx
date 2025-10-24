@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
+import { useAuth } from '../contexts/AuthContext'
 
 interface Avatar {
   id: string;
@@ -21,6 +22,23 @@ export const SignUpPage = () => {
   });
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, authLoading, navigate])
+
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+      </div>
+    )
+  }
 
   // Fetch available avatars
   useEffect(() => {
@@ -62,8 +80,8 @@ export const SignUpPage = () => {
         body: JSON.stringify({
           username: formData.username,
           password: formData.password,
-          type: "user",
-          ...(selectedAvatar && { avatarId: selectedAvatar }),
+          type: "user", // Default to regular user
+          ...(selectedAvatar && { avatarId: selectedAvatar }), // Only include if avatar is selected
         }),
       });
 
@@ -117,7 +135,7 @@ export const SignUpPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
