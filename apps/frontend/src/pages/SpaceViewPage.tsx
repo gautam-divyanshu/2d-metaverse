@@ -606,7 +606,7 @@ export const SpaceViewPage = () => {
               </button>
             </div>
             <div className="text-slate-300 text-sm">
-              Arrow keys/WASD to walk • Double-click to teleport • Scroll to navigate
+              Arrows to move • Double-click-teleport • Scroll to navigate
             </div>
           </div>
           
