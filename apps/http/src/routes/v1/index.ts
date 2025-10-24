@@ -27,7 +27,7 @@ router.post("/signup", async (req, res) => {
       data: {
         username: parsedData.data.username,
         password: hashedPassword,
-        role: parsedData.data.type === "admin" ? "Admin" : "User",
+        role: parsedData.data.type === "admin" ? "admin" : "user",
       },
     });
     res.json({
@@ -90,13 +90,14 @@ router.get("/elements", async (req, res) => {
       imageUrl: e.imageUrl,
       width: e.width,
       height: e.height,
-      static: e.static,
+      static: e.isStatic,
     })),
   });
 });
 
 router.get("/avatars", async (req, res) => {
   const avatars = await client.avatar.findMany();
+
   res.json({
     avatars: avatars.map((x) => ({
       id: x.id,

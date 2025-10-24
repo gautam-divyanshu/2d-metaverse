@@ -15,10 +15,10 @@ userRouter.post("/metadata", userMiddleware, async (req, res) => {
   try {
     await client.user.update({
       where: {
-        id: req.userId,
+        id: req.userId ? parseInt(req.userId) : undefined,
       },
       data: {
-        avatarId: parsedData.data.avatarId,
+        avatarId: parseInt(parsedData.data.avatarId),
       },
     });
     res.json({ message: "Metadata updated" });
@@ -30,7 +30,11 @@ userRouter.post("/metadata", userMiddleware, async (req, res) => {
 
 userRouter.get("/metadata/bulk", async (req, res) => {
   const userIdString = (req.query.ids ?? "[]") as string;
-  const userIds = userIdString.slice(1, userIdString?.length - 1).split(",");
+  const userIds = userIdString
+    .slice(1, userIdString?.length - 1)
+    .split(",")
+    .map((id) => parseInt(id.trim()))
+    .filter((id) => !isNaN(id));
   console.log(userIds);
   const metadata = await client.user.findMany({
     where: {

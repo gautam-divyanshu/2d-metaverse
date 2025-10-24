@@ -1,166 +1,231 @@
 import { Router } from "express";
-import { PrismaClient } from 'db';
+import client from "@repo/db/client";
+import { userMiddleware } from "../../middleware/user";
+import {
+  AddElementSchema,
+  CreateElementSchema,
+  CreateSpaceSchema,
+  DeleteElementSchema,
+} from "../../types";
+export const spaceRouter = Router();
 
-const prisma = new PrismaClient();
+spaceRouter.post("/", userMiddleware, async (req, res) => {
+  console.log("endopibnt");
+  const parsedData = CreateSpaceSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    console.log(JSON.stringify(parsedData));
+    res.status(400).json({ message: "Validation failed" });
+    return;
+  }
 
-export const spaceRouter: Router = Router();
+  if (!parsedData.data.mapId) {
+    const space = await client.space.create({
+      data: {
+        name: parsedData.data.name,
+        width: parseInt(parsedData.data.dimensions.split("x")[0]),
+        height: parseInt(parsedData.data.dimensions.split("x")[1]),
+        ownerId: parseInt(req.userId!),
+      },
+    });
+    res.json({ spaceId: space.id });
+    return;
+  }
 
-// Create a new space
-spaceRouter.post("/", async (req, res) => {
-    try {
-        const { name, width, height, ownerId, thumbnail } = req.body;
-        
-        if (!name || !width || !height || !ownerId) {
-            return res.status(400).json({ error: "Name, width, height, and owner ID are required" });
-        }
+  const map = await client.map.findFirst({
+    where: {
+      id: parseInt(parsedData.data.mapId),
+    },
+    select: {
+      mapElements: true,
+      width: true,
+      height: true,
+    },
+  });
+  console.log("after");
+  if (!map) {
+    res.status(400).json({ message: "Map not found" });
+    return;
+  }
+  console.log("map.mapElements.length");
+  console.log(map.mapElements.length);
+  let space = await client.$transaction(async () => {
+    const space = await client.space.create({
+      data: {
+        name: parsedData.data.name,
+        width: map.width,
+        height: map.height,
+        ownerId: parseInt(req.userId!),
+      },
+    });
 
-        const newSpace = await prisma.space.create({
-            data: {
-                name,
-                width,
-                height,
-                ownerId,
-                thumbnail
-            },
-            include: {
-                owner: {
-                    select: { id: true, username: true }
-                }
-            }
-        });
+    await client.spaceElement.createMany({
+      data: map.mapElements.map((e) => ({
+        spaceId: space.id,
+        elementId: e.elementId,
+        x: e.x,
+        y: e.y,
+      })),
+    });
 
-        res.status(201).json({ 
-            message: "Space created successfully", 
-            space: newSpace 
-        });
-    } catch (error) {
-        console.error('Create space error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+    return space;
+  });
+  console.log("space crated");
+  res.json({ spaceId: space.id });
 });
 
-// Get a specific space
-spaceRouter.get("/:spaceid", async (req, res) => {
-    try {
-        const { spaceid } = req.params;
-        const spaceId = parseInt(spaceid);
-        
-        if (isNaN(spaceId)) {
-            return res.status(400).json({ error: "Invalid space ID" });
-        }
-
-        const space = await prisma.space.findUnique({
-            where: { id: spaceId },
-            include: {
-                owner: {
-                    select: { id: true, username: true }
-                },
-                elements: {
-                    include: {
-                        element: true
-                    }
-                }
-            }
-        });
-
-        if (!space) {
-            return res.status(404).json({ error: "Space not found" });
-        }
-
-        res.json({ space });
-    } catch (error) {
-        console.error('Get space error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+spaceRouter.delete("/element", userMiddleware, async (req, res) => {
+  console.log("spaceElement?.space1 ");
+  const parsedData = DeleteElementSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    res.status(400).json({ message: "Validation failed" });
+    return;
+  }
+  const spaceElement = await client.spaceElement.findFirst({
+    where: {
+      id: parseInt(parsedData.data.id),
+    },
+    include: {
+      space: true,
+    },
+  });
+  console.log(spaceElement?.space);
+  console.log("spaceElement?.space");
+  if (
+    !spaceElement?.space.ownerId ||
+    spaceElement.space.ownerId !== parseInt(req.userId!)
+  ) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
+  await client.spaceElement.delete({
+    where: {
+      id: parseInt(parsedData.data.id),
+    },
+  });
+  res.json({ message: "Element deleted" });
 });
 
-// Delete a space
-spaceRouter.delete("/:spaceid", async (req, res) => {
-    try {
-        const { spaceid } = req.params;
-        const spaceId = parseInt(spaceid);
-        
-        if (isNaN(spaceId)) {
-            return res.status(400).json({ error: "Invalid space ID" });
-        }
+spaceRouter.delete("/:spaceId", userMiddleware, async (req, res) => {
+  console.log("req.params.spaceId", req.params.spaceId);
+  const space = await client.space.findUnique({
+    where: {
+      id: parseInt(req.params.spaceId),
+    },
+    select: {
+      ownerId: true,
+    },
+  });
+  if (!space) {
+    res.status(400).json({ message: "Space not found" });
+    return;
+  }
 
-        await prisma.space.delete({
-            where: { id: spaceId }
-        });
+  if (space.ownerId !== parseInt(req.userId!)) {
+    console.log("code should reach here");
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
 
-        res.json({ message: "Space deleted successfully" });
-    } catch (error) {
-        console.error('Delete space error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  await client.space.delete({
+    where: {
+      id: parseInt(req.params.spaceId),
+    },
+  });
+  res.json({ message: "Space deleted" });
 });
 
-// Get all spaces
-spaceRouter.get("/all", async (req, res) => {
-    try {
-        const spaces = await prisma.space.findMany({
-            include: {
-                owner: {
-                    select: { id: true, username: true }
-                }
-            }
-        });
+spaceRouter.get("/all", userMiddleware, async (req, res) => {
+  const spaces = await client.space.findMany({
+    where: {
+      ownerId: parseInt(req.userId!),
+    },
+  });
 
-        res.json({ spaces });
-    } catch (error) {
-        console.error('Get all spaces error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  res.json({
+    spaces: spaces.map((s) => ({
+      id: s.id,
+      name: s.name,
+      thumbnail: s.thumbnail,
+      dimensions: `${s.width}x${s.height}`,
+    })),
+  });
 });
 
-// Add element to space
-spaceRouter.post("/element", async (req, res) => {
-    try {
-        const { spaceId, elementId, x, y } = req.body;
-        
-        if (!spaceId || !elementId || x === undefined || y === undefined) {
-            return res.status(400).json({ error: "Space ID, element ID, x, and y coordinates are required" });
-        }
+spaceRouter.post("/element", userMiddleware, async (req, res) => {
+  const parsedData = AddElementSchema.safeParse(req.body);
+  if (!parsedData.success) {
+    res.status(400).json({ message: "Validation failed" });
+    return;
+  }
+  const space = await client.space.findUnique({
+    where: {
+      id: parseInt(req.body.spaceId),
+      ownerId: parseInt(req.userId!),
+    },
+    select: {
+      width: true,
+      height: true,
+    },
+  });
 
-        const spaceElement = await prisma.spaceElement.create({
-            data: {
-                spaceId,
-                elementId,
-                x,
-                y
-            },
-            include: {
-                element: true,
-                space: true
-            }
-        });
+  if (
+    req.body.x < 0 ||
+    req.body.y < 0 ||
+    req.body.x > space?.width! ||
+    req.body.y > space?.height!
+  ) {
+    res.status(400).json({ message: "Point is outside of the boundary" });
+    return;
+  }
 
-        res.status(201).json({ 
-            message: "Element added to space", 
-            spaceElement 
-        });
-    } catch (error) {
-        console.error('Add element to space error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  if (!space) {
+    res.status(400).json({ message: "Space not found" });
+    return;
+  }
+  await client.spaceElement.create({
+    data: {
+      spaceId: parseInt(req.body.spaceId),
+      elementId: parseInt(req.body.elementId),
+      x: req.body.x,
+      y: req.body.y,
+    },
+  });
+
+  res.json({ message: "Element added" });
 });
 
-// Remove element from space
-spaceRouter.delete("/element", async (req, res) => {
-    try {
-        const { spaceElementId } = req.body;
-        
-        if (!spaceElementId) {
-            return res.status(400).json({ error: "Space element ID is required" });
-        }
+spaceRouter.get("/:spaceId", async (req, res) => {
+  const space = await client.space.findUnique({
+    where: {
+      id: parseInt(req.params.spaceId),
+    },
+    include: {
+      elements: {
+        include: {
+          element: true,
+        },
+      },
+    },
+  });
 
-        await prisma.spaceElement.delete({
-            where: { id: spaceElementId }
-        });
+  if (!space) {
+    res.status(400).json({ message: "Space not found" });
+    return;
+  }
 
-        res.json({ message: "Element removed from space" });
-    } catch (error) {
-        console.error('Remove element from space error:', error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+  res.json({
+    dimensions: `${space.width}x${space.height}`,
+    elements: space.elements.map((e) => ({
+      id: e.id,
+      element: {
+        id: e.element.id,
+        imageUrl: e.element.imageUrl,
+        width: e.element.width,
+        height: e.element.height,
+        static: e.element.isStatic,
+      },
+      x: e.x,
+      y: e.y,
+    })),
+  });
 });
