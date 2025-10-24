@@ -47,6 +47,7 @@ export const SpaceEditorPage = () => {
   const [availableElements, setAvailableElements] = useState<Element[]>([]);
   const [selectedElement, setSelectedElement] = useState<Element | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     fetchSpaceData();
@@ -57,7 +58,7 @@ export const SpaceEditorPage = () => {
     if (space) {
       drawCanvas();
     }
-  }, [space, selectedElement]);
+  }, [space, selectedElement, mousePosition]);
 
   const fetchSpaceData = async () => {
     try {
@@ -118,16 +119,38 @@ export const SpaceEditorPage = () => {
     const rawX = e.clientX - rect.left + scrollLeft;
     const rawY = e.clientY - rect.top + scrollTop;
     
-    const x = Math.floor(rawX / CELL_SIZE);
-    const y = Math.floor(rawY / CELL_SIZE);
+    // Calculate grid position (center the element on click)
+    let x = Math.floor(rawX / CELL_SIZE);
+    let y = Math.floor(rawY / CELL_SIZE);
 
-    // Validate bounds
-    if (x < 0 || x >= space.width || y < 0 || y >= space.height) {
-      console.log(`Click outside bounds: (${x}, ${y}), space size: ${space.width}x${space.height}`);
+    // Center the element around the click point
+    x = x - Math.floor(selectedElement.width / 2);
+    y = y - Math.floor(selectedElement.height / 2);
+
+    // Validate bounds (ensure the entire element fits within the space)
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x + selectedElement.width > space.width) x = space.width - selectedElement.width;
+    if (y + selectedElement.height > space.height) y = space.height - selectedElement.height;
+
+    // Check if this position would cause overlap with existing elements
+    const wouldOverlap = space.elements.some(existingElement => {
+      const existingEndX = existingElement.x + existingElement.element.width;
+      const existingEndY = existingElement.y + existingElement.element.height;
+      const newEndX = x + selectedElement.width;
+      const newEndY = y + selectedElement.height;
+
+      return !(x >= existingEndX || newEndX <= existingElement.x || 
+               y >= existingEndY || newEndY <= existingElement.y);
+    });
+
+    if (wouldOverlap) {
+      console.log('Cannot place element: would overlap with existing element');
+      alert('Cannot place element: would overlap with existing element');
       return;
     }
 
-    console.log(`Placing element ${selectedElement.id} at (${x}, ${y})`);
+    console.log(`Placing element ${selectedElement.id} (${selectedElement.width}x${selectedElement.height}) at (${x}, ${y})`);
 
     // Add element to space
     try {
@@ -138,7 +161,7 @@ export const SpaceEditorPage = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          spaceId: parseInt(spaceId!),
+          spaceId: spaceId!,
           elementId: selectedElement.id.toString(),
           x,
           y
@@ -148,13 +171,16 @@ export const SpaceEditorPage = () => {
       if (response.ok) {
         console.log('Element placed successfully');
         fetchSpaceData(); // Refresh space data
+        setSelectedElement(null); // Deselect element after placement
       } else {
         console.error('Failed to place element, status:', response.status);
         const errorData = await response.text();
         console.error('Error response:', errorData);
+        alert(`Failed to place element: ${errorData}`);
       }
     } catch (error) {
       console.error('Failed to add element:', error);
+      alert('Network error while placing element');
     }
   };
 
@@ -224,14 +250,75 @@ export const SpaceEditorPage = () => {
       );
     });
 
-    // Highlight selected element type
-    if (selectedElement) {
-      ctx.strokeStyle = '#10b981';
+    // Draw element preview at mouse position
+    if (selectedElement && mousePosition) {
+      let previewX = Math.floor(mousePosition.x / CELL_SIZE);
+      let previewY = Math.floor(mousePosition.y / CELL_SIZE);
+      
+      // Center the element around the cursor
+      previewX = previewX - Math.floor(selectedElement.width / 2);
+      previewY = previewY - Math.floor(selectedElement.height / 2);
+
+      // Validate bounds
+      if (previewX < 0) previewX = 0;
+      if (previewY < 0) previewY = 0;
+      if (previewX + selectedElement.width > space.width) previewX = space.width - selectedElement.width;
+      if (previewY + selectedElement.height > space.height) previewY = space.height - selectedElement.height;
+
+      // Check if this position would cause overlap
+      const wouldOverlap = space.elements.some(existingElement => {
+        const existingEndX = existingElement.x + existingElement.element.width;
+        const existingEndY = existingElement.y + existingElement.element.height;
+        const newEndX = previewX + selectedElement.width;
+        const newEndY = previewY + selectedElement.height;
+
+        return !(previewX >= existingEndX || newEndX <= existingElement.x || 
+                 previewY >= existingEndY || newEndY <= existingElement.y);
+      });
+
+      // Draw preview with appropriate color
+      ctx.fillStyle = wouldOverlap ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.5)';
+      ctx.fillRect(
+        previewX * CELL_SIZE,
+        previewY * CELL_SIZE,
+        selectedElement.width * CELL_SIZE,
+        selectedElement.height * CELL_SIZE
+      );
+      
+      ctx.strokeStyle = wouldOverlap ? '#ef4444' : '#10b981';
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
-      ctx.strokeRect(5, 5, selectedElement.width * CELL_SIZE - 10, selectedElement.height * CELL_SIZE - 10);
+      ctx.strokeRect(
+        previewX * CELL_SIZE,
+        previewY * CELL_SIZE,
+        selectedElement.width * CELL_SIZE,
+        selectedElement.height * CELL_SIZE
+      );
       ctx.setLineDash([]);
     }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!selectedElement) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const container = canvas.parentElement;
+    if (!container) return;
+
+    const scrollLeft = container.scrollLeft;
+    const scrollTop = container.scrollTop;
+
+    const x = e.clientX - rect.left + scrollLeft;
+    const y = e.clientY - rect.top + scrollTop;
+
+    setMousePosition({ x, y });
+  };
+
+  const handleMouseLeave = () => {
+    setMousePosition(null);
   };
 
   if (isLoading) {
@@ -273,12 +360,16 @@ export const SpaceEditorPage = () => {
               Back to Dashboard
             </button>
             <h1 className="text-3xl font-bold text-white">Edit: {space.name}</h1>
-            <p className="text-slate-400">
-              {selectedElement 
-                ? `Selected Element #${selectedElement.id} - Click on canvas to place` 
-                : 'Select an element from the palette to place it'
-              }
-            </p>
+            <div className="text-slate-400">
+              {selectedElement ? (
+                <div>
+                  <p>Selected: Element #{selectedElement.id} ({selectedElement.width}x{selectedElement.height}) - {selectedElement.isStatic ? 'Static' : 'Walkable'}</p>
+                  <p className="text-sm">Click on canvas to place. Element will be centered on your click.</p>
+                </div>
+              ) : (
+                <p>Select an element from the palette to place it</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -347,7 +438,9 @@ export const SpaceEditorPage = () => {
                   width={space.width * CELL_SIZE}
                   height={space.height * CELL_SIZE}
                   onClick={handleCanvasClick}
-                  className="cursor-crosshair block"
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={handleMouseLeave}
+                  className={selectedElement ? "cursor-crosshair block" : "cursor-default block"}
                 />
               </div>
               

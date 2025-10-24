@@ -55,7 +55,6 @@ export const SpaceViewPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [zoom, setZoom] = useState<number>(1);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Check if user is the owner of this space
   const isOwner = space && user && space.ownerId === parseInt(user.id);
@@ -82,11 +81,12 @@ export const SpaceViewPage = () => {
 
   useEffect(() => {
     if (space && currentUser) {
-      const timeoutId = setTimeout(() => {
+      // Use requestAnimationFrame for smoother rendering
+      const animationId = requestAnimationFrame(() => {
         drawCanvas();
-      }, 16); // Throttle to ~60 FPS
+      });
       
-      return () => clearTimeout(timeoutId);
+      return () => cancelAnimationFrame(animationId);
     }
   }, [space, currentUser, users]);
 
@@ -132,8 +132,7 @@ export const SpaceViewPage = () => {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
-      // Join the space
+      // Immediately join the space for faster connection
       ws.send(JSON.stringify({
         type: 'join',
         payload: {
@@ -145,17 +144,27 @@ export const SpaceViewPage = () => {
 
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data);
-      console.log('WebSocket message:', message);
+      // Process messages immediately without console.log for performance
 
       switch (message.type) {
         case 'space-joined':
-          console.log('Space joined:', message.payload);
           // Initialize current user position
+          const spawnX = message.payload.spawn.x;
+          const spawnY = message.payload.spawn.y;
+          
           setCurrentUser({
-            x: message.payload.spawn.x,
-            y: message.payload.spawn.y,
+            x: spawnX,
+            y: spawnY,
             userId: message.payload.userId
           });
+          
+          // Reset zoom to 100% (normal view)
+          setZoom(1);
+          
+          // Center the scroll position on the player's spawn location
+          setTimeout(() => {
+            centerScrollOnPlayer(spawnX, spawnY, false);
+          }, 100); // Small delay to ensure DOM is updated
           
           // Initialize other users from the payload
           const userMap = new Map();
@@ -176,7 +185,6 @@ export const SpaceViewPage = () => {
             const newUsers = new Map(prev);
             // Only add if it's not the current user and not already in the list
             if (message.payload.userId !== currentUser?.userId && !newUsers.has(message.payload.userId)) {
-              console.log('Adding new user:', message.payload.userId);
               newUsers.set(message.payload.userId, {
                 id: message.payload.userId,
                 x: message.payload.x || 0,
@@ -196,21 +204,20 @@ export const SpaceViewPage = () => {
           break;
         
         case 'movement':
-          // Only update other users, not the current user
+          // Immediately update other users' positions for fast synchronization
           if (message.payload.userId !== currentUser?.userId) {
             setUsers(prev => {
               const newUsers = new Map(prev);
               const user = newUsers.get(message.payload.userId);
-              if (user && (user.x !== message.payload.x || user.y !== message.payload.y)) {
-                console.log(`Updating user ${message.payload.userId} from (${user.x}, ${user.y}) to (${message.payload.x}, ${message.payload.y})`);
+              if (user) {
+                // Always update position immediately
                 newUsers.set(message.payload.userId, {
                   ...user,
                   x: message.payload.x,
                   y: message.payload.y
                 });
-                return newUsers;
               }
-              return prev; // No change needed
+              return newUsers;
             });
           }
           break;
@@ -277,72 +284,114 @@ export const SpaceViewPage = () => {
     }
 
     if (newX !== currentUser.x || newY !== currentUser.y) {
-      console.log(`Attempting to move from (${currentUser.x}, ${currentUser.y}) to (${newX}, ${newY})`);
-      
-      // Optimistically update current user position
+      // Optimistically update current user position for immediate feedback
       setCurrentUser(prev => prev ? {
         ...prev,
         x: newX,
         y: newY
       } : null);
       
-      // Send movement request
-      const moveMessage = {
+      // Send movement request immediately
+      wsRef.current.send(JSON.stringify({
         type: 'move',
         payload: {
           x: newX,
           y: newY,
           userId: currentUser.userId
         }
-      };
-      
-      console.log('Sending move message:', moveMessage);
-      wsRef.current.send(JSON.stringify(moveMessage));
+      }));
     }
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !space) return;
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !space) {
+      console.log('Double-click blocked: missing requirements');
+      return;
+    }
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const canvasContainer = canvas.parentElement;
-    if (!canvasContainer) return;
-
-    const containerRect = canvasContainer.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
     
-    // Account for zoom and pan
-    const x = Math.floor(((e.clientX - containerRect.left) / zoom - pan.x) / CELL_SIZE);
-    const y = Math.floor(((e.clientY - containerRect.top) / zoom - pan.y) / CELL_SIZE);
+    // Since canvas is positioned absolutely, use direct click coordinates on canvas
+    const canvasClickX = e.clientX - rect.left;
+    const canvasClickY = e.clientY - rect.top;
+    
+    // Convert to grid coordinates (no need to account for canvas offset here)
+    const x = Math.floor(canvasClickX / CELL_SIZE);
+    const y = Math.floor(canvasClickY / CELL_SIZE);
+
+    console.log(`Double-click at canvas (${canvasClickX}, ${canvasClickY}) -> grid (${x}, ${y})`);
 
     // Validate bounds
-    if (x < 0 || x >= space.width || y < 0 || y >= space.height) return;
+    if (x < 0 || x >= space.width || y < 0 || y >= space.height) {
+      console.log(`Click out of bounds: (${x}, ${y}), space size: ${space.width}x${space.height}`);
+      return;
+    }
 
-    console.log(`Click move from (${currentUser.x}, ${currentUser.y}) to (${x}, ${y})`);
-    
-    // Optimistically update current user position
+    console.log(`Teleporting from (${currentUser.x}, ${currentUser.y}) to (${x}, ${y})`);
+
+    // Optimistically update current user position for teleportation
     setCurrentUser(prev => prev ? {
       ...prev,
       x: x,
       y: y
     } : null);
 
-    // Send movement to WebSocket
+    // Send teleport request (using move message but allowing any distance)
     wsRef.current.send(JSON.stringify({
       type: 'move',
-      payload: { 
-        x, 
-        y,
-        userId: currentUser.userId
+      payload: {
+        x: x,
+        y: y,
+        userId: currentUser.userId,
+        teleport: true // Flag to indicate this is a teleport
       }
     }));
+  };
+
+  const handleCanvasClick = (_e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Single click is disabled - use double-click to teleport or arrow keys to move
   };
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentUser, space]);
+
+  // Zoom functions - scrolling handles navigation
+  const zoomInCentered = () => {
+    setZoom(Math.min(3, zoom + 0.25));
+  };
+
+  const zoomOutCentered = () => {
+    setZoom(Math.max(0.25, zoom - 0.25));
+  };
+
+  // Helper function to center scroll on player
+  const centerScrollOnPlayer = (playerX: number, playerY: number, smooth = false) => {
+    const canvas = canvasRef.current;
+    const scrollContainer = canvas?.parentElement?.parentElement;
+    if (canvas && scrollContainer) {
+      const playerCanvasX = playerX * CELL_SIZE + CELL_SIZE / 2 + 500;
+      const playerCanvasY = playerY * CELL_SIZE + CELL_SIZE / 2 + 500;
+      
+      const scrollLeft = playerCanvasX - scrollContainer.clientWidth / 2;
+      const scrollTop = playerCanvasY - scrollContainer.clientHeight / 2;
+      
+      if (smooth) {
+        scrollContainer.scrollTo({
+          left: Math.max(0, scrollLeft),
+          top: Math.max(0, scrollTop),
+          behavior: 'smooth'
+        });
+      } else {
+        scrollContainer.scrollLeft = Math.max(0, scrollLeft);
+        scrollContainer.scrollTop = Math.max(0, scrollTop);
+      }
+    }
+  };
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -371,16 +420,18 @@ export const SpaceViewPage = () => {
       ctx.stroke();
     }
 
-    // Draw elements
+    // Draw elements (all elements are obstacles/non-walkable)
     space.elements.forEach((element) => {
-      ctx.fillStyle = '#4a5568';
+      // All elements are obstacles - use solid color to indicate they block movement
+      ctx.fillStyle = '#dc2626'; // Red color to indicate obstacles
+      ctx.strokeStyle = '#991b1b'; // Darker red border
+      
       ctx.fillRect(
         element.x * CELL_SIZE,
         element.y * CELL_SIZE,
         element.element.width * CELL_SIZE,
         element.element.height * CELL_SIZE
       );
-      ctx.strokeStyle = '#718096';
       ctx.strokeRect(
         element.x * CELL_SIZE,
         element.y * CELL_SIZE,
@@ -391,9 +442,8 @@ export const SpaceViewPage = () => {
 
     // Draw other users
     users.forEach((user) => {
-      // Validate user position
+      // Quick validation without console.log for performance
       if (typeof user.x !== 'number' || typeof user.y !== 'number') {
-        console.log('Skipping user with invalid position:', user);
         return;
       }
       
@@ -525,9 +575,9 @@ export const SpaceViewPage = () => {
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setZoom(Math.max(0.25, zoom - 0.25))}
+                onClick={zoomOutCentered}
                 className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title="Zoom Out"
+                title="Zoom Out (Centered on Player)"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
@@ -535,61 +585,98 @@ export const SpaceViewPage = () => {
                 {Math.round(zoom * 100)}%
               </span>
               <button
-                onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+                onClick={zoomInCentered}
                 className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title="Zoom In"
+                title="Zoom In (Centered on Player)"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
               <button
                 onClick={() => {
                   setZoom(1);
-                  setPan({ x: 0, y: 0 });
+                  // Center scroll on current player position
+                  if (currentUser) {
+                    centerScrollOnPlayer(currentUser.x, currentUser.y, true);
+                  }
                 }}
                 className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title="Reset View"
+                title="Reset Zoom & Center on Player"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
             </div>
             <div className="text-slate-300 text-sm">
-              Arrows to move • Controls to zoom
+              Arrow keys/WASD to walk • Double-click to teleport • Scroll to navigate
             </div>
           </div>
           
-          {/* Canvas Container */}
-          <div className="max-h-[70vh] overflow-auto rounded-lg border border-slate-600 bg-slate-900">
+          {/* Canvas Container with Scrollable Area */}
+          <div 
+            className="max-h-[70vh] overflow-auto rounded-lg border border-slate-600 bg-slate-900 scroll-smooth"
+            style={{ 
+              scrollBehavior: 'smooth',
+              overflowX: 'auto',
+              overflowY: 'auto'
+            }}
+          >
             <div
               style={{
-                transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                transform: `scale(${zoom})`,
                 transformOrigin: 'top left',
-                transition: 'transform 0.1s ease-out'
+                transition: 'transform 0.2s ease-out',
+                // Make the scrollable area much larger to allow full grid navigation
+                width: `${(space.width * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
+                height: `${(space.height * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
+                position: 'relative',
+                minWidth: '100%',
+                minHeight: '100%'
               }}
             >
+              {/* Background padding area with subtle pattern */}
+              <div 
+                className="absolute inset-0"
+                style={{
+                  background: 'radial-gradient(circle at center, rgba(30, 41, 59, 0.1) 1px, transparent 1px)',
+                  backgroundSize: '20px 20px',
+                  opacity: 0.3
+                }}
+              />
+              
+              {/* Canvas centered within the padded container */}
               <canvas
                 ref={canvasRef}
                 width={space.width * CELL_SIZE}
                 height={space.height * CELL_SIZE}
                 onClick={handleCanvasClick}
-                className="block cursor-pointer"
+                onDoubleClick={handleCanvasDoubleClick}
+                className="block shadow-lg"
+                title="Double-click to teleport, use arrow keys to walk"
+                style={{
+                  position: 'absolute',
+                  left: '500px', // Center the canvas within the padded area
+                  top: '500px',   // Center the canvas within the padded area
+                  border: '2px solid rgba(59, 130, 246, 0.3)', // Subtle border to show game area
+                  borderRadius: '4px',
+                  cursor: 'default' // Normal cursor, no special pointer
+                }}
               />
             </div>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="mt-6 flex justify-center gap-8 text-white">
+        <div className="mt-6 flex justify-center gap-8 text-white text-sm">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
             <span>You</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
-            <span>Other Users</span>
+            <span>Other Players</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-600 border border-gray-500"></div>
-            <span>Elements</span>
+            <div className="w-4 h-4 bg-red-600 border border-red-800"></div>
+            <span>Obstacles (Elements)</span>
           </div>
         </div>
       </div>
