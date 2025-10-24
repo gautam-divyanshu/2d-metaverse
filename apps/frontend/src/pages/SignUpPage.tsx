@@ -31,7 +31,7 @@ export const SignUpPage = () => {
         if (response.ok) {
           setAvatars(data.avatars);
           if (data.avatars.length > 0) {
-            setSelectedAvatar(data.avatars[0].id);
+            setSelectedAvatar(data.avatars[0].id.toString());
           }
         }
       } catch (err) {
@@ -62,7 +62,8 @@ export const SignUpPage = () => {
         body: JSON.stringify({
           username: formData.username,
           password: formData.password,
-          avatarId: selectedAvatar,
+          type: "user",
+          ...(selectedAvatar && { avatarId: selectedAvatar }),
         }),
       });
 
@@ -243,11 +244,11 @@ export const SignUpPage = () => {
                     <button
                       key={avatar.id}
                       type="button"
-                      onClick={() => setSelectedAvatar(avatar.id)}
+                      onClick={() => setSelectedAvatar(avatar.id.toString())}
                       className={`
                         relative p-2 rounded-lg border-2 transition-all duration-200
                         ${
-                          selectedAvatar === avatar.id
+                          selectedAvatar === avatar.id.toString()
                             ? "border-blue-400 bg-blue-500/20"
                             : "border-white/20 bg-white/5 hover:border-white/40"
                         }
