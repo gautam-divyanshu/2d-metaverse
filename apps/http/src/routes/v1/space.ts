@@ -151,6 +151,29 @@ spaceRouter.get("/all", userMiddleware, async (req, res) => {
   });
 });
 
+spaceRouter.get("/public", userMiddleware, async (req, res) => {
+  const spaces = await client.space.findMany({
+    include: {
+      owner: {
+        select: {
+          username: true,
+        },
+      },
+    },
+  });
+
+  res.json({
+    spaces: spaces.map((s) => ({
+      id: s.id,
+      name: s.name,
+      thumbnail: s.thumbnail,
+      dimensions: `${s.width}x${s.height}`,
+      owner: s.owner.username,
+      isOwner: s.ownerId === parseInt(req.userId!),
+    })),
+  });
+});
+
 spaceRouter.post("/element", userMiddleware, async (req, res) => {
   const parsedData = AddElementSchema.safeParse(req.body);
   if (!parsedData.success) {
@@ -194,7 +217,7 @@ spaceRouter.post("/element", userMiddleware, async (req, res) => {
   res.json({ message: "Element added" });
 });
 
-spaceRouter.get("/:spaceId", async (req, res) => {
+spaceRouter.get("/:spaceId", userMiddleware, async (req, res) => {
   const space = await client.space.findUnique({
     where: {
       id: parseInt(req.params.spaceId),
@@ -214,18 +237,23 @@ spaceRouter.get("/:spaceId", async (req, res) => {
   }
 
   res.json({
-    dimensions: `${space.width}x${space.height}`,
+    id: space.id,
+    name: space.name,
+    width: space.width,
+    height: space.height,
+    ownerId: space.ownerId,
     elements: space.elements.map((e) => ({
       id: e.id,
+      elementId: e.elementId,
+      x: e.x,
+      y: e.y,
       element: {
         id: e.element.id,
         imageUrl: e.element.imageUrl,
         width: e.element.width,
         height: e.element.height,
-        static: e.element.isStatic,
+        isStatic: e.element.isStatic,
       },
-      x: e.x,
-      y: e.y,
     })),
   });
 });

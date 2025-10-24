@@ -4,12 +4,12 @@ import { Sparkles, Users, Globe, Zap } from 'lucide-react'
 
 export const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
       </div>
 
       {/* Navigation */}
@@ -21,7 +21,7 @@ export const LandingPage = () => {
             className="flex items-center space-x-2"
           >
             <Sparkles className="w-8 h-8 text-blue-400" />
-            <span className="text-2xl font-bold text-white">MetaVerse</span>
+            <span className="text-2xl font-bold text-white">2D Metaverse</span>
           </motion.div>
           
           <motion.div
@@ -29,10 +29,10 @@ export const LandingPage = () => {
             animate={{ opacity: 1, x: 0 }}
             className="flex space-x-4"
           >
-            <Link to="/signin" className="btn-secondary">
+            <Link to="/signin" className="bg-slate-700/50 backdrop-blur-sm text-white px-6 py-2 rounded-lg hover:bg-slate-600/50 transition-all border border-slate-600">
               Sign In
             </Link>
-            <Link to="/signup" className="btn-primary">
+            <Link to="/signup" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-lg">
               Get Started
             </Link>
           </motion.div>
@@ -49,7 +49,7 @@ export const LandingPage = () => {
             className="text-6xl md:text-7xl font-bold text-white mb-6 leading-tight"
           >
             Enter the
-            <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent"> Future </span>
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"> Future </span>
             of Social Interaction
           </motion.h1>
           
@@ -69,10 +69,10 @@ export const LandingPage = () => {
             transition={{ delay: 0.6 }}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
-            <Link to="/signup" className="btn-primary text-lg px-8 py-4">
+            <Link to="/signup" className="bg-blue-600 text-white text-lg px-8 py-4 rounded-lg hover:bg-blue-700 transition-all shadow-lg">
               Start Your Journey
             </Link>
-            <button className="btn-secondary text-lg px-8 py-4">
+            <button className="bg-slate-700/50 backdrop-blur-sm text-white text-lg px-8 py-4 rounded-lg hover:bg-slate-600/50 transition-all border border-slate-600">
               Watch Demo
             </button>
           </motion.div>

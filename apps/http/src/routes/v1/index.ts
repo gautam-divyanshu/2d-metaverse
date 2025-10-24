@@ -10,19 +10,38 @@ import { JWT_PASSWORD } from "../../config";
 
 export const router = Router();
 
+// Database health check endpoint
+router.get("/health", async (req, res) => {
+  try {
+    console.log("Testing database connection...");
+    await client.$connect();
+    console.log("Database connection successful");
+    res.json({ status: "ok", database: "connected" });
+  } catch (error) {
+    console.error("Database connection failed:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ status: "error", database: "disconnected", error: errorMessage });
+  }
+});
+
 router.post("/signup", async (req, res) => {
   console.log("inside signup");
+  console.log("Environment check - DATABASE_URL exists:", !!process.env.DATABASE_URL);
+  
   // check the user
   const parsedData = SignupSchema.safeParse(req.body);
   if (!parsedData.success) {
-    console.log("parsed data incorrect");
-    res.status(400).json({ message: "Validation failed" });
+    console.log("parsed data incorrect", parsedData.error);
+    res.status(400).json({ message: "Validation failed", errors: parsedData.error.issues });
     return;
   }
 
-  const hashedPassword = await hash(parsedData.data.password);
-
   try {
+    console.log("Attempting to hash password...");
+    const hashedPassword = await hash(parsedData.data.password);
+    console.log("Password hashed successfully");
+
+    console.log("Attempting database connection...");
     const user = await client.user.create({
       data: {
         username: parsedData.data.username,
@@ -31,13 +50,26 @@ router.post("/signup", async (req, res) => {
         avatarId: parsedData.data.avatarId ? parseInt(parsedData.data.avatarId) : undefined,
       },
     });
+    console.log("User created successfully:", user.id);
     res.json({
       userId: user.id,
     });
   } catch (e) {
-    console.log("erroer thrown");
-    console.log(e);
-    res.status(400).json({ message: "User already exists" });
+    console.log("Database error occurred:");
+    console.error(e);
+    
+    // Check if it's a specific Prisma error
+    if (e && typeof e === 'object' && 'code' in e) {
+      if (e.code === 'P2002') {
+        res.status(400).json({ message: "Username already exists" });
+      } else if (e.code === 'P1001') {
+        res.status(500).json({ message: "Database connection failed" });
+      } else {
+        res.status(500).json({ message: "Database error", code: e.code });
+      }
+    } else {
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
 });
 
@@ -76,6 +108,9 @@ router.post("/signin", async (req, res) => {
 
     res.json({
       token,
+      userId: user.id.toString(),
+      role: user.role,
+      avatarId: user.avatarId
     });
   } catch (e) {
     res.status(400).json({ message: "Internal server error" });
@@ -91,7 +126,7 @@ router.get("/elements", async (req, res) => {
       imageUrl: e.imageUrl,
       width: e.width,
       height: e.height,
-      static: e.isStatic,
+      isStatic: e.isStatic,
     })),
   });
 });
@@ -104,6 +139,20 @@ router.get("/avatars", async (req, res) => {
       id: x.id,
       imageUrl: x.imageUrl,
       name: x.name,
+    })),
+  });
+});
+
+router.get("/maps", async (req, res) => {
+  const maps = await client.map.findMany();
+
+  res.json({
+    maps: maps.map((m) => ({
+      id: m.id,
+      name: m.name,
+      width: m.width,
+      height: m.height,
+      dimensions: `${m.width}x${m.height}`,
     })),
   });
 });
