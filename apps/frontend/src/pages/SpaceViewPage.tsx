@@ -34,6 +34,12 @@ interface User {
   y: number;
 }
 
+interface CurrentUser {
+  x: number;
+  y: number;
+  userId: string;
+}
+
 const CELL_SIZE = 32; // pixels per grid cell
 
 export const SpaceViewPage = () => {
@@ -45,7 +51,7 @@ export const SpaceViewPage = () => {
   
   const [space, setSpace] = useState<SpaceData | null>(null);
   const [users, setUsers] = useState<Map<string, User>>(new Map());
-  const [myPosition, setMyPosition] = useState<{ x: number; y: number } | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [zoom, setZoom] = useState<number>(1);
@@ -57,23 +63,32 @@ export const SpaceViewPage = () => {
   useEffect(() => {
     fetchSpaceData();
     return () => {
+      // Clean up WebSocket connection
       if (wsRef.current) {
         wsRef.current.close();
+        wsRef.current = null;
       }
+      // Clear user state
+      setUsers(new Map());
+      setCurrentUser(null);
     };
   }, [spaceId]);
 
   useEffect(() => {
-    if (space && myPosition) {
+    if (space) {
       connectWebSocket();
     }
   }, [space]);
 
   useEffect(() => {
-    if (space && myPosition) {
-      drawCanvas();
+    if (space && currentUser) {
+      const timeoutId = setTimeout(() => {
+        drawCanvas();
+      }, 16); // Throttle to ~60 FPS
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [space, myPosition, users]);
+  }, [space, currentUser, users]);
 
   const fetchSpaceData = async () => {
     try {
@@ -108,6 +123,11 @@ export const SpaceViewPage = () => {
   };
 
   const connectWebSocket = () => {
+    // Close existing connection if any
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    
     const ws = new WebSocket('ws://localhost:3001');
     wsRef.current = ws;
 
@@ -129,21 +149,40 @@ export const SpaceViewPage = () => {
 
       switch (message.type) {
         case 'space-joined':
-          setMyPosition(message.payload.spawn);
-          // Add existing users
-          message.payload.users.forEach((u: { id: string }) => {
-            setUsers(prev => new Map(prev).set(u.id, { id: u.id, x: 0, y: 0 }));
+          console.log('Space joined:', message.payload);
+          // Initialize current user position
+          setCurrentUser({
+            x: message.payload.spawn.x,
+            y: message.payload.spawn.y,
+            userId: message.payload.userId
           });
+          
+          // Initialize other users from the payload
+          const userMap = new Map();
+          message.payload.users.forEach((u: any) => {
+            if (u.userId && u.userId !== message.payload.userId) {
+              userMap.set(u.userId, {
+                id: u.userId,
+                x: u.x || 0,
+                y: u.y || 0
+              });
+            }
+          });
+          setUsers(userMap);
           break;
         
         case 'user-joined':
           setUsers(prev => {
             const newUsers = new Map(prev);
-            newUsers.set(message.payload.userId, {
-              id: message.payload.userId,
-              x: message.payload.x,
-              y: message.payload.y
-            });
+            // Only add if it's not the current user and not already in the list
+            if (message.payload.userId !== currentUser?.userId && !newUsers.has(message.payload.userId)) {
+              console.log('Adding new user:', message.payload.userId);
+              newUsers.set(message.payload.userId, {
+                id: message.payload.userId,
+                x: message.payload.x || 0,
+                y: message.payload.y || 0
+              });
+            }
             return newUsers;
           });
           break;
@@ -157,19 +196,41 @@ export const SpaceViewPage = () => {
           break;
         
         case 'movement':
-          setUsers(prev => {
-            const newUsers = new Map(prev);
-            const user = newUsers.get(message.payload.userId);
-            if (user) {
-              user.x = message.payload.x;
-              user.y = message.payload.y;
-            }
-            return newUsers;
-          });
+          // Only update other users, not the current user
+          if (message.payload.userId !== currentUser?.userId) {
+            setUsers(prev => {
+              const newUsers = new Map(prev);
+              const user = newUsers.get(message.payload.userId);
+              if (user && (user.x !== message.payload.x || user.y !== message.payload.y)) {
+                console.log(`Updating user ${message.payload.userId} from (${user.x}, ${user.y}) to (${message.payload.x}, ${message.payload.y})`);
+                newUsers.set(message.payload.userId, {
+                  ...user,
+                  x: message.payload.x,
+                  y: message.payload.y
+                });
+                return newUsers;
+              }
+              return prev; // No change needed
+            });
+          }
+          break;
+        
+        case 'movement-accepted':
+          // Confirm current user position when movement is accepted
+          setCurrentUser(prev => prev ? {
+            ...prev,
+            x: message.payload.x,
+            y: message.payload.y
+          } : null);
           break;
         
         case 'movement-rejected':
-          setMyPosition(message.payload);
+          // Reset current user position if movement was rejected
+          setCurrentUser(prev => prev ? {
+            ...prev,
+            x: message.payload.x,
+            y: message.payload.y
+          } : null);
           break;
       }
     };
@@ -185,43 +246,63 @@ export const SpaceViewPage = () => {
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (!myPosition || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-    let newX = myPosition.x;
-    let newY = myPosition.y;
+    let newX = currentUser.x;
+    let newY = currentUser.y;
 
     switch (e.key) {
       case 'ArrowUp':
       case 'w':
-        newY = Math.max(0, myPosition.y - 1);
+        e.preventDefault(); // Prevent scrolling
+        newY = Math.max(0, currentUser.y - 1);
         break;
       case 'ArrowDown':
       case 's':
-        newY = Math.min(space!.height - 1, myPosition.y + 1);
+        e.preventDefault(); // Prevent scrolling
+        newY = Math.min(space!.height - 1, currentUser.y + 1);
         break;
       case 'ArrowLeft':
       case 'a':
-        newX = Math.max(0, myPosition.x - 1);
+        e.preventDefault(); // Prevent scrolling
+        newX = Math.max(0, currentUser.x - 1);
         break;
       case 'ArrowRight':
       case 'd':
-        newX = Math.min(space!.width - 1, myPosition.x + 1);
+        e.preventDefault(); // Prevent scrolling
+        newX = Math.min(space!.width - 1, currentUser.x + 1);
         break;
       default:
         return;
     }
 
-    if (newX !== myPosition.x || newY !== myPosition.y) {
-      wsRef.current.send(JSON.stringify({
+    if (newX !== currentUser.x || newY !== currentUser.y) {
+      console.log(`Attempting to move from (${currentUser.x}, ${currentUser.y}) to (${newX}, ${newY})`);
+      
+      // Optimistically update current user position
+      setCurrentUser(prev => prev ? {
+        ...prev,
+        x: newX,
+        y: newY
+      } : null);
+      
+      // Send movement request
+      const moveMessage = {
         type: 'move',
-        payload: { x: newX, y: newY }
-      }));
-      setMyPosition({ x: newX, y: newY });
+        payload: {
+          x: newX,
+          y: newY,
+          userId: currentUser.userId
+        }
+      };
+      
+      console.log('Sending move message:', moveMessage);
+      wsRef.current.send(JSON.stringify(moveMessage));
     }
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!myPosition || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !space) return;
+    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !space) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -238,21 +319,34 @@ export const SpaceViewPage = () => {
     // Validate bounds
     if (x < 0 || x >= space.width || y < 0 || y >= space.height) return;
 
+    console.log(`Click move from (${currentUser.x}, ${currentUser.y}) to (${x}, ${y})`);
+    
+    // Optimistically update current user position
+    setCurrentUser(prev => prev ? {
+      ...prev,
+      x: x,
+      y: y
+    } : null);
+
     // Send movement to WebSocket
     wsRef.current.send(JSON.stringify({
-      type: 'movement',
-      payload: { x, y }
+      type: 'move',
+      payload: { 
+        x, 
+        y,
+        userId: currentUser.userId
+      }
     }));
   };
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [myPosition, space]);
+  }, [currentUser, space]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !space || !myPosition) return;
+    if (!canvas || !space || !currentUser) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -297,6 +391,12 @@ export const SpaceViewPage = () => {
 
     // Draw other users
     users.forEach((user) => {
+      // Validate user position
+      if (typeof user.x !== 'number' || typeof user.y !== 'number') {
+        console.log('Skipping user with invalid position:', user);
+        return;
+      }
+      
       ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
       ctx.arc(
@@ -307,14 +407,24 @@ export const SpaceViewPage = () => {
         Math.PI * 2
       );
       ctx.fill();
+      
+      // Draw user label
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        `User ${String(user.id || 'Unknown').slice(-4)}`, 
+        user.x * CELL_SIZE + CELL_SIZE / 2, 
+        user.y * CELL_SIZE + CELL_SIZE / 2 + 25
+      );
     });
 
     // Draw current user
     ctx.fillStyle = '#10b981';
     ctx.beginPath();
     ctx.arc(
-      myPosition.x * CELL_SIZE + CELL_SIZE / 2,
-      myPosition.y * CELL_SIZE + CELL_SIZE / 2,
+      currentUser.x * CELL_SIZE + CELL_SIZE / 2,
+      currentUser.y * CELL_SIZE + CELL_SIZE / 2,
       CELL_SIZE / 3,
       0,
       Math.PI * 2
@@ -325,6 +435,12 @@ export const SpaceViewPage = () => {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
     ctx.stroke();
+    
+    // Draw current user label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('You', currentUser.x * CELL_SIZE + CELL_SIZE / 2, currentUser.y * CELL_SIZE + CELL_SIZE / 2 + 25);
   };
 
   if (isLoading) {
@@ -372,7 +488,13 @@ export const SpaceViewPage = () => {
               Back to Dashboard
             </button>
             <h1 className="text-3xl font-bold text-white">{space.name}</h1>
-            <p className="text-slate-400">Use arrow keys or WASD to move</p>
+            {currentUser && (
+              <div className="text-sm text-slate-400 mt-1">
+                <p>Position: ({currentUser.x}, {currentUser.y})</p>
+                <p>User ID: {String(currentUser.userId || 'Unknown').slice(-8)}</p>
+                <p>Space ID: {spaceId}</p>
+              </div>
+            )}
           </div>
           
           {/* Edit button for space owner only */}
@@ -387,7 +509,12 @@ export const SpaceViewPage = () => {
             )}
             <div className="text-white">
               <p className="text-sm text-slate-400">Users online</p>
-              <p className="text-2xl font-bold">{users.size + 1}</p>
+              <p className="text-2xl font-bold">{users.size + (currentUser ? 1 : 0)}</p>
+              <div className="text-xs text-slate-500 mt-1">
+                Other Users: {Array.from(users.entries()).map(([id, user]) => 
+                  `${String(id).slice(-4)}:(${user.x},${user.y})`
+                ).join(', ') || 'None'}
+              </div>
             </div>
           </div>
         </div>
@@ -426,7 +553,7 @@ export const SpaceViewPage = () => {
               </button>
             </div>
             <div className="text-slate-300 text-sm">
-              Click to move • Use controls to zoom
+              Arrows to move • Controls to zoom
             </div>
           </div>
           
