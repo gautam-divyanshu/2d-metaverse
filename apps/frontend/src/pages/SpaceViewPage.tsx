@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Header } from '../components/Header';
-import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Maximize, Minimize } from 'lucide-react';
 // import { createPhaserGame } from '../components/PhaserGame';
 
 interface SpaceElement {
@@ -55,6 +55,7 @@ export const SpaceViewPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [zoom, setZoom] = useState<number>(1);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Check if user is the owner of this space
   const isOwner = space && user && space.ownerId === parseInt(user.id);
@@ -356,9 +357,46 @@ export const SpaceViewPage = () => {
   };
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentUser, space]);
+    const keyHandler = (e: KeyboardEvent) => {
+      // Handle ESC key for fullscreen exit
+      if (e.key === 'Escape' && isFullscreen) {
+        exitFullscreen();
+        return;
+      }
+      
+      // Handle movement keys
+      handleKeyDown(e);
+    };
+
+    window.addEventListener('keydown', keyHandler);
+    return () => window.removeEventListener('keydown', keyHandler);
+  }, [currentUser, space, isFullscreen]);
+
+  // Fullscreen functionality
+  const enterFullscreen = () => {
+    const canvasContainer = document.querySelector('.canvas-container') as HTMLElement;
+    if (canvasContainer && canvasContainer.requestFullscreen) {
+      canvasContainer.requestFullscreen();
+      setIsFullscreen(true);
+    }
+  };
+
+  const exitFullscreen = () => {
+    if (document.exitFullscreen && document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+    setIsFullscreen(false);
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // Zoom functions - scrolling handles navigation
   const zoomInCentered = () => {
@@ -604,15 +642,26 @@ export const SpaceViewPage = () => {
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
+              <button
+                onClick={isFullscreen ? exitFullscreen : enterFullscreen}
+                className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
+              >
+                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              </button>
             </div>
             <div className="text-slate-300 text-sm">
-              Arrows to move • Double-click-teleport • Scroll to navigate
+              Arrows to move • Double-click-teleport • Scroll to navigate • ESC exits fullscreen
             </div>
           </div>
           
           {/* Canvas Container with Scrollable Area */}
           <div 
-            className="max-h-[70vh] overflow-auto rounded-lg border border-slate-600 bg-slate-900 scroll-smooth"
+            className={`canvas-container overflow-auto rounded-lg border border-slate-600 bg-slate-900 scroll-smooth ${
+              isFullscreen 
+                ? 'fixed inset-0 z-50 rounded-none border-none' 
+                : 'max-h-[70vh]'
+            }`}
             style={{ 
               scrollBehavior: 'smooth',
               overflowX: 'auto',
