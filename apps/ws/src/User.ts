@@ -81,6 +81,27 @@ export class User {
                     // Spawn at a safe position within the space bounds
                     this.x = Math.floor(Math.random() * space.width);
                     this.y = Math.floor(Math.random() * space.height);
+                    
+                    // Fetch recent messages (last 50) for this space
+                    const recentMessages = await client.message.findMany({
+                        where: {
+                            spaceId: spaceId
+                        },
+                        orderBy: {
+                            createdAt: 'desc'
+                        },
+                        take: 50
+                    });
+                    
+                    // Reverse to show oldest first
+                    const messages = recentMessages.reverse().map(msg => ({
+                        id: msg.id,
+                        userId: msg.userId.toString(),
+                        displayName: msg.displayName,
+                        text: msg.text,
+                        createdAt: msg.createdAt.toISOString()
+                    }));
+                    
                     this.send({
                         type: "space-joined",
                         payload: {
@@ -89,7 +110,8 @@ export class User {
                                 y: this.y
                             },
                             userId: this.userId,
-                            users: RoomManager.getInstance().rooms.get(spaceId)?.filter(x => x.id !== this.id)?.map((u) => ({id: u.id, userId: u.userId, x: u.x, y: u.y})) ?? []
+                            users: RoomManager.getInstance().rooms.get(spaceId)?.filter(x => x.id !== this.id)?.map((u) => ({id: u.id, userId: u.userId, x: u.x, y: u.y})) ?? [],
+                            messages: messages
                         }
                     });
                     console.log("jouin receiverdf5")
@@ -154,6 +176,49 @@ export class User {
                             y: this.y
                         }
                     });
+                    break;
+
+                case "chat":
+                    // Chat message broadcasting and persistence
+                    try {
+                        const text = String(parsedData.payload?.text || "").slice(0, 2000);
+                        const displayName = parsedData.payload?.displayName || String(this.userId || this.id);
+
+                        if (!this.spaceId || !this.userId || !text.trim()) return;
+
+                        // Persist message to database
+                        const savedMessage = await client.message.create({
+                            data: {
+                                spaceId: parseInt(this.spaceId),
+                                userId: parseInt(this.userId),
+                                displayName,
+                                text: text.trim()
+                            }
+                        });
+
+                        const chatPayload = {
+                            id: savedMessage.id,
+                            userId: this.userId,
+                            displayName,
+                            text: text.trim(),
+                            createdAt: savedMessage.createdAt.toISOString()
+                        };
+
+                        // Send to sender immediately
+                        this.send({
+                            type: "chat",
+                            payload: chatPayload
+                        });
+
+                        // Broadcast to other users in the room
+                        RoomManager.getInstance().broadcast({
+                            type: "chat",
+                            payload: chatPayload
+                        }, this, this.spaceId!);
+                    } catch (err) {
+                        console.error("Error handling chat message:", err);
+                    }
+                    break;
                     
             }
         });
