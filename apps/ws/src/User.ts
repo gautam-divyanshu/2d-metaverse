@@ -18,6 +18,8 @@ export class User {
     public id: string;
     public userId?: string;
     private spaceId?: string;
+    private mapId?: string;
+    private roomType?: 'space' | 'map';
     public x: number;
     public y: number;
     private ws: WebSocket;
@@ -40,11 +42,12 @@ export class User {
                 case "join":
                     console.log("join received")
                     const spaceId = parsedData.payload.spaceId;
+                    const mapId = parsedData.payload.mapId;
                     const token = parsedData.payload.token;
                     
-                    // Validate required fields
-                    if (!spaceId || !token) {
-                        console.log("Missing spaceId or token in join request")
+                    // Validate required fields - either spaceId or mapId but not both
+                    if ((!spaceId && !mapId) || (spaceId && mapId) || !token) {
+                        console.log("Missing or conflicting spaceId/mapId or token in join request")
                         this.ws.close()
                         return
                     }
@@ -63,66 +66,136 @@ export class User {
                         this.ws.close()
                         return
                     }
-                    console.log("jouin receiverdfd 2")
+                    
                     this.userId = userId
-                    const space = await client.space.findFirst({
-                        where: {
-                            id: spaceId
+                    
+                    // Handle space joining
+                    if (spaceId) {
+                        const space = await client.space.findFirst({
+                            where: {
+                                id: spaceId
+                            }
+                        })
+                        
+                        if (!space) {
+                            this.ws.close()
+                            return;
                         }
-                    })
-                    console.log("jouin receiverdfd 3")
-                    if (!space) {
-                        this.ws.close()
-                        return;
-                    }
-                    console.log("jouin receiverdfd 4")
-                    this.spaceId = spaceId
-                    RoomManager.getInstance().addUser(spaceId, this);
-                    // Spawn at a safe position within the space bounds
-                    this.x = Math.floor(Math.random() * space.width);
-                    this.y = Math.floor(Math.random() * space.height);
-                    
-                    // Fetch recent messages (last 50) for this space
-                    const recentMessages = await client.message.findMany({
-                        where: {
-                            spaceId: spaceId
-                        },
-                        orderBy: {
-                            createdAt: 'desc'
-                        },
-                        take: 50
-                    });
-                    
-                    // Reverse to show oldest first
-                    const messages = recentMessages.reverse().map(msg => ({
-                        id: msg.id,
-                        userId: msg.userId.toString(),
-                        displayName: msg.displayName,
-                        text: msg.text,
-                        createdAt: msg.createdAt.toISOString()
-                    }));
-                    
-                    this.send({
-                        type: "space-joined",
-                        payload: {
-                            spawn: {
+                        
+                        this.spaceId = spaceId
+                        this.roomType = 'space'
+                        RoomManager.getInstance().addUser(`space_${spaceId}`, this);
+                        
+                        // Spawn at a safe position within the space bounds
+                        this.x = Math.floor(Math.random() * space.width);
+                        this.y = Math.floor(Math.random() * space.height);
+                        
+                        // Fetch recent messages (last 50) for this space
+                        const recentMessages = await client.message.findMany({
+                            where: {
+                                spaceId: spaceId
+                            },
+                            orderBy: {
+                                createdAt: 'desc'
+                            },
+                            take: 50
+                        });
+                        
+                        // Reverse to show oldest first
+                        const messages = recentMessages.reverse().map(msg => ({
+                            id: msg.id,
+                            userId: msg.userId.toString(),
+                            displayName: msg.displayName,
+                            text: msg.text,
+                            createdAt: msg.createdAt.toISOString()
+                        }));
+                        
+                        this.send({
+                            type: "space-joined",
+                            payload: {
+                                spawn: {
+                                    x: this.x,
+                                    y: this.y
+                                },
+                                userId: this.userId,
+                                users: RoomManager.getInstance().rooms.get(`space_${spaceId}`)?.filter(x => x.id !== this.id)?.map((u) => ({id: u.id, userId: u.userId, x: u.x, y: u.y})) ?? [],
+                                messages: messages
+                            }
+                        });
+                        
+                        RoomManager.getInstance().broadcast({
+                            type: "user-joined",
+                            payload: {
+                                userId: this.userId,
                                 x: this.x,
                                 y: this.y
+                            }
+                        }, this, `space_${this.spaceId}`);
+                    }
+                    
+                    // Handle map joining
+                    if (mapId) {
+                        const map = await client.map.findFirst({
+                            where: {
+                                id: mapId
+                            }
+                        })
+                        
+                        if (!map) {
+                            this.ws.close()
+                            return;
+                        }
+                        
+                        this.mapId = mapId
+                        this.roomType = 'map'
+                        RoomManager.getInstance().addUser(`map_${mapId}`, this);
+                        
+                        // Spawn at a safe position within the map bounds
+                        this.x = Math.floor(Math.random() * map.width);
+                        this.y = Math.floor(Math.random() * map.height);
+                        
+                        // Fetch recent messages (last 50) for this map
+                        const recentMessages = await client.message.findMany({
+                            where: {
+                                mapId: mapId
                             },
-                            userId: this.userId,
-                            users: RoomManager.getInstance().rooms.get(spaceId)?.filter(x => x.id !== this.id)?.map((u) => ({id: u.id, userId: u.userId, x: u.x, y: u.y})) ?? [],
-                            messages: messages
-                        }
-                    });
-                    console.log("jouin receiverdf5")
-                    RoomManager.getInstance().broadcast({
-                        type: "user-joined",
-                        payload: {
-                            userId: this.userId,
-                            x: this.x,
-                            y: this.y
-                        }
-                    }, this, this.spaceId!);
+                            orderBy: {
+                                createdAt: 'desc'
+                            },
+                            take: 50
+                        });
+                        
+                        // Reverse to show oldest first
+                        const messages = recentMessages.reverse().map(msg => ({
+                            id: msg.id,
+                            userId: msg.userId.toString(),
+                            displayName: msg.displayName,
+                            text: msg.text,
+                            createdAt: msg.createdAt.toISOString()
+                        }));
+                        
+                        this.send({
+                            type: "map-joined",
+                            payload: {
+                                spawn: {
+                                    x: this.x,
+                                    y: this.y
+                                },
+                                userId: this.userId,
+                                users: RoomManager.getInstance().rooms.get(`map_${mapId}`)?.filter(x => x.id !== this.id)?.map((u) => ({id: u.id, userId: u.userId, x: u.x, y: u.y})) ?? [],
+                                messages: messages
+                            }
+                        });
+                        
+                        RoomManager.getInstance().broadcast({
+                            type: "user-joined",
+                            payload: {
+                                userId: this.userId,
+                                x: this.x,
+                                y: this.y
+                            }
+                        }, this, `map_${this.mapId}`);
+                    }
                     break;
                 case "move":
                     const moveX = parsedData.payload.x;
@@ -135,8 +208,8 @@ export class User {
                         console.log(`Teleport request: ${this.userId} from (${this.x}, ${this.y}) to (${moveX}, ${moveY})`);
                     }
                     
-                    // Get space dimensions and validate movement
-                    if (!this.spaceId) {
+                    // Validate that user is in either a space or map
+                    if (!this.spaceId && !this.mapId) {
                         return;
                     }
                     
@@ -147,6 +220,9 @@ export class User {
                         this.x = moveX;
                         this.y = moveY;
                         
+                        // Determine the room key for broadcasting
+                        const roomKey = this.spaceId ? `space_${this.spaceId}` : `map_${this.mapId}`;
+                        
                         // Broadcast to other users FIRST for speed
                         RoomManager.getInstance().broadcast({
                             type: "movement",
@@ -155,7 +231,7 @@ export class User {
                                 x: this.x,
                                 y: this.y
                             }
-                        }, this, this.spaceId!);
+                        }, this, roomKey);
                         
                         // Send acknowledgment to the moving user
                         this.send({
@@ -184,37 +260,71 @@ export class User {
                         const text = String(parsedData.payload?.text || "").slice(0, 2000);
                         const displayName = parsedData.payload?.displayName || String(this.userId || this.id);
 
-                        if (!this.spaceId || !this.userId || !text.trim()) return;
+                        if ((!this.spaceId && !this.mapId) || !this.userId || !text.trim()) return;
 
-                        // Persist message to database
-                        const savedMessage = await client.message.create({
-                            data: {
-                                spaceId: parseInt(this.spaceId),
-                                userId: parseInt(this.userId),
+                        const roomKey = this.spaceId ? `space_${this.spaceId}` : `map_${this.mapId}`;
+
+                        if (this.spaceId) {
+                            // For spaces: persist message to database
+                            const savedMessage = await client.message.create({
+                                data: {
+                                    spaceId: parseInt(this.spaceId),
+                                    userId: parseInt(this.userId),
+                                    displayName,
+                                    text: text.trim()
+                                }
+                            });
+
+                            const chatPayload = {
+                                id: savedMessage.id,
+                                userId: this.userId,
                                 displayName,
-                                text: text.trim()
-                            }
-                        });
+                                text: text.trim(),
+                                createdAt: savedMessage.createdAt.toISOString()
+                            };
 
-                        const chatPayload = {
-                            id: savedMessage.id,
-                            userId: this.userId,
-                            displayName,
-                            text: text.trim(),
-                            createdAt: savedMessage.createdAt.toISOString()
-                        };
+                            // Send to sender immediately
+                            this.send({
+                                type: "chat",
+                                payload: chatPayload
+                            });
 
-                        // Send to sender immediately
-                        this.send({
-                            type: "chat",
-                            payload: chatPayload
-                        });
+                            // Broadcast to other users in the room
+                            RoomManager.getInstance().broadcast({
+                                type: "chat",
+                                payload: chatPayload
+                            }, this, roomKey);
+                        } else if (this.mapId) {
+                            // For maps: persist message to database (same as spaces)
+                            const savedMessage = await client.message.create({
+                                data: {
+                                    mapId: parseInt(this.mapId),
+                                    userId: parseInt(this.userId),
+                                    displayName,
+                                    text: text.trim()
+                                }
+                            });
 
-                        // Broadcast to other users in the room
-                        RoomManager.getInstance().broadcast({
-                            type: "chat",
-                            payload: chatPayload
-                        }, this, this.spaceId!);
+                            const chatPayload = {
+                                id: savedMessage.id,
+                                userId: this.userId,
+                                displayName,
+                                text: text.trim(),
+                                createdAt: savedMessage.createdAt.toISOString()
+                            };
+
+                            // Send to sender immediately
+                            this.send({
+                                type: "chat",
+                                payload: chatPayload
+                            });
+
+                            // Broadcast to other users in the room
+                            RoomManager.getInstance().broadcast({
+                                type: "chat",
+                                payload: chatPayload
+                            }, this, roomKey);
+                        }
                     } catch (err) {
                         console.error("Error handling chat message:", err);
                     }
@@ -232,53 +342,101 @@ export class User {
             }
             
             // 2. Quick check: collision with other players (no DB query needed)
-            const roomUsers = RoomManager.getInstance().rooms.get(this.spaceId!) || [];
+            const roomKey = this.spaceId ? `space_${this.spaceId}` : `map_${this.mapId}`;
+            const roomUsers = RoomManager.getInstance().rooms.get(roomKey) || [];
             for (const otherUser of roomUsers) {
                 if (otherUser.id !== this.id && otherUser.x === newX && otherUser.y === newY) {
                     return false; // Player collision
                 }
             }
             
-            // 3. Get space data (optimized query - only get what we need)
-            const space = await client.space.findFirst({
-                where: { id: parseInt(this.spaceId!) },
-                select: {
-                    width: true,
-                    height: true,
-                    elements: {
-                        select: {
-                            x: true,
-                            y: true,
-                            element: {
-                                select: {
-                                    width: true,
-                                    height: true
+            // 3. Get room data based on type
+            if (this.spaceId) {
+                // Handle space validation
+                const space = await client.space.findFirst({
+                    where: { id: parseInt(this.spaceId) },
+                    select: {
+                        width: true,
+                        height: true,
+                        elements: {
+                            select: {
+                                x: true,
+                                y: true,
+                                element: {
+                                    select: {
+                                        width: true,
+                                        height: true
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
-            
-            if (!space) {
-                return false;
-            }
-            
-            // 4. Check boundaries
-            if (newX < 0 || newX >= space.width || newY < 0 || newY >= space.height) {
-                return false;
-            }
-            
-            // 5. Check element collisions (all elements are obstacles)
-            for (const spaceElement of space.elements) {
-                const element = spaceElement.element;
+                });
                 
-                if (newX >= spaceElement.x &&
-                    newX < spaceElement.x + element.width &&
-                    newY >= spaceElement.y &&
-                    newY < spaceElement.y + element.height) {
-                    return false; // Element collision
+                if (!space) {
+                    return false;
                 }
+                
+                // Check boundaries
+                if (newX < 0 || newX >= space.width || newY < 0 || newY >= space.height) {
+                    return false;
+                }
+                
+                // Check element collisions
+                for (const spaceElement of space.elements) {
+                    const element = spaceElement.element;
+                    
+                    if (newX >= spaceElement.x &&
+                        newX < spaceElement.x + element.width &&
+                        newY >= spaceElement.y &&
+                        newY < spaceElement.y + element.height) {
+                        return false; // Element collision
+                    }
+                }
+            } else if (this.mapId) {
+                // Handle map validation
+                const map = await client.map.findFirst({
+                    where: { id: parseInt(this.mapId) },
+                    select: {
+                        width: true,
+                        height: true,
+                        mapElements: {
+                            select: {
+                                x: true,
+                                y: true,
+                                element: {
+                                    select: {
+                                        width: true,
+                                        height: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                if (!map) {
+                    return false;
+                }
+                
+                // Check boundaries
+                if (newX < 0 || newX >= map.width || newY < 0 || newY >= map.height) {
+                    return false;
+                }
+                
+                // Check element collisions
+                for (const mapElement of map.mapElements) {
+                    const element = mapElement.element;
+                    
+                    if (newX >= mapElement.x &&
+                        newX < mapElement.x + element.width &&
+                        newY >= mapElement.y &&
+                        newY < mapElement.y + element.height) {
+                        return false; // Element collision
+                    }
+                }
+            } else {
+                return false; // Neither space nor map
             }
             
             return true;
@@ -288,13 +446,17 @@ export class User {
     }
 
     destroy() {
-        RoomManager.getInstance().broadcast({
-            type: "user-left",
-            payload: {
-                userId: this.userId
-            }
-        }, this, this.spaceId!);
-        RoomManager.getInstance().removeUser(this, this.spaceId!);
+        const roomKey = this.spaceId ? `space_${this.spaceId}` : `map_${this.mapId}`;
+        
+        if (roomKey && (this.spaceId || this.mapId)) {
+            RoomManager.getInstance().broadcast({
+                type: "user-left",
+                payload: {
+                    userId: this.userId
+                }
+            }, this, roomKey);
+            RoomManager.getInstance().removeUser(this, roomKey);
+        }
     }
 
     send(payload: OutgoingMessage) {

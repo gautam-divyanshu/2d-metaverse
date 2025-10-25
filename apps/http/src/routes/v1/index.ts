@@ -157,6 +157,92 @@ router.get("/maps", async (req, res) => {
   });
 });
 
+// Get public map details (for viewing)
+router.get("/map/:mapId", async (req, res) => {
+  const mapId = parseInt(req.params.mapId);
+  
+  const map = await client.map.findFirst({
+    where: {
+      id: mapId,
+    },
+    include: {
+      mapElements: {
+        include: {
+          element: true,
+        },
+      },
+      mapSpaces: {
+        include: {
+          space: {
+            include: {
+              elements: {
+                include: {
+                  element: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      creator: {
+        select: {
+          id: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  if (!map) {
+    res.status(404).json({ message: "Map not found" });
+    return;
+  }
+
+  res.json({
+    id: map.id,
+    name: map.name,
+    width: map.width,
+    height: map.height,
+    ownerId: map.creatorId,
+    owner: map.creator.username,
+    elements: map.mapElements.map((me) => ({
+      id: me.id,
+      elementId: me.elementId,
+      x: me.x,
+      y: me.y,
+      element: {
+        id: me.element.id,
+        imageUrl: me.element.imageUrl,
+        width: me.element.width,
+        height: me.element.height,
+        isStatic: me.element.isStatic,
+      },
+    })),
+    mapSpaces: map.mapSpaces.map((ms) => ({
+      id: ms.id,
+      spaceId: ms.spaceId,
+      spaceName: ms.space.name,
+      x: ms.x,
+      y: ms.y,
+      width: ms.space.width,
+      height: ms.space.height,
+      elements: ms.space.elements.map((se) => ({
+        id: se.id,
+        elementId: se.elementId,
+        x: se.x,
+        y: se.y,
+        element: {
+          id: se.element.id,
+          imageUrl: se.element.imageUrl,
+          width: se.element.width,
+          height: se.element.height,
+          isStatic: se.element.isStatic,
+        },
+      })),
+    })),
+  });
+});
+
 router.use("/user", userRouter);
 router.use("/space", spaceRouter);
 router.use("/admin", adminRouter);

@@ -19,13 +19,28 @@ interface PublicSpace {
   owner: string
 }
 
+interface Map {
+  id: number
+  name: string
+  dimensions: string
+  ownerId?: number
+}
+
+interface PublicMap {
+  id: number
+  name: string
+  dimensions: string
+}
+
 export const DashboardPage = () => {
   const { token, isAuthenticated, user, logout } = useAuth()
   const navigate = useNavigate()
   const [mySpaces, setMySpaces] = useState<Space[]>([])
   const [publicSpaces, setPublicSpaces] = useState<PublicSpace[]>([])
-  const [activeTab, setActiveTab] = useState<'my-spaces' | 'join-spaces'>(
-    user?.role === 'admin' ? 'my-spaces' : 'join-spaces'
+  const [myMaps, setMyMaps] = useState<Map[]>([])
+  const [publicMaps, setPublicMaps] = useState<PublicMap[]>([])
+  const [activeTab, setActiveTab] = useState<'my-spaces' | 'join-spaces' | 'my-maps' | 'join-maps'>(
+    user?.role === 'admin' ? 'my-spaces' : 'join-maps'
   )
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -51,8 +66,10 @@ export const DashboardPage = () => {
       
       if (user?.role === 'admin') {
         fetchMySpaces()
+        fetchMyMaps()
       }
       fetchPublicSpaces()
+      fetchPublicMaps()
     }
   }, [isAuthenticated, user])
 
@@ -99,6 +116,53 @@ export const DashboardPage = () => {
       }
     } catch (error) {
       console.error('Failed to fetch public spaces:', error)
+    }
+  }
+
+  const fetchMyMaps = async () => {
+    // Only admins can have maps
+    if (user?.role !== 'admin') {
+      return
+    }
+    
+    try {
+      const response = await fetch('http://localhost:3000/api/v1/admin/maps', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const formattedMaps = data.map((map: any) => ({
+          ...map,
+          dimensions: `${map.width}x${map.height}`
+        }))
+        setMyMaps(formattedMaps)
+      }
+    } catch (error) {
+      console.error('Failed to fetch my maps:', error)
+    }
+  }
+
+  const fetchPublicMaps = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/v1/maps', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Public maps data:', data)
+        setPublicMaps(data.maps || [])
+      } else {
+        console.error('Failed to fetch public maps:', response.status)
+      }
+    } catch (error) {
+      console.error('Failed to fetch public maps:', error)
     }
   }
 
@@ -217,16 +281,42 @@ export const DashboardPage = () => {
               My Spaces
             </button>
           )}
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('join-spaces')}
+              className={`px-6 py-2 rounded-md font-medium transition-all ${
+                activeTab === 'join-spaces'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Globe className="w-4 h-4 inline mr-2" />
+              Join Spaces
+            </button>
+          )}
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('my-maps')}
+              className={`px-6 py-2 rounded-md font-medium transition-all ${
+                activeTab === 'my-maps'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <MapPin className="w-4 h-4 inline mr-2" />
+              My Maps
+            </button>
+          )}
           <button
-            onClick={() => setActiveTab('join-spaces')}
+            onClick={() => setActiveTab('join-maps')}
             className={`px-6 py-2 rounded-md font-medium transition-all ${
-              activeTab === 'join-spaces'
+              activeTab === 'join-maps'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Globe className="w-4 h-4 inline mr-2" />
-            {user?.role === 'admin' ? 'Join Spaces' : 'Public Spaces'}
+            <MapPin className="w-4 h-4 inline mr-2" />
+            {user?.role === 'admin' ? 'Join Maps' : 'Public Maps'}
           </button>
         </div>
 
@@ -301,7 +391,7 @@ export const DashboardPage = () => {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'join-spaces' ? (
           <div>
             {/* Join Spaces Header */}
             <div className="mb-6">
@@ -340,6 +430,115 @@ export const DashboardPage = () => {
                         className="w-full bg-cyan-600 text-white py-2 px-3 rounded-lg hover:bg-cyan-700 transition-colors text-sm"
                       >
                         Join Space
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (activeTab === 'my-maps' && user?.role === 'admin') ? (
+          <div>
+            {/* My Maps Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-white">Your Maps</h3>
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Map
+                </button>
+              )}
+            </div>
+
+            {/* My Maps Grid */}
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+                <p className="text-slate-400 mt-4">Loading your maps...</p>
+              </div>
+            ) : myMaps.length === 0 ? (
+              <div className="text-center py-12 bg-slate-800 rounded-xl border border-slate-700">
+                <MapPin className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">No maps yet</h3>
+                <p className="text-slate-400 mb-6">Create your first map template to get started</p>
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Create Your First Map
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myMaps.map((map) => (
+                  <div key={map.id} className="bg-slate-800 rounded-xl border border-slate-700 hover:shadow-lg transition-shadow">
+                    <div className="h-32 bg-gradient-to-br from-purple-900 to-pink-900 rounded-t-xl flex items-center justify-center">
+                      <MapPin className="w-8 h-8 text-purple-400" />
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-semibold text-white mb-1">{map.name}</h4>
+                      <p className="text-sm text-slate-400 mb-4">Size: {map.dimensions}</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => navigate(`/map/${map.id}`)}
+                          className="flex-1 bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                        >
+                          Enter
+                        </button>
+                        <button
+                          onClick={() => navigate(`/map/${map.id}/edit`)}
+                          className="p-2 text-slate-400 hover:text-white border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            {/* Join Maps Header */}
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-white mb-2">Public Maps</h3>
+              <p className="text-slate-400">Explore map templates created by other users</p>
+            </div>
+
+            {/* Public Maps Grid */}
+            {publicMaps.length === 0 ? (
+              <div className="text-center py-12 bg-slate-800 rounded-xl border border-slate-700">
+                <MapPin className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-white mb-2">No public maps available</h3>
+                <p className="text-slate-400">Be the first to create a map template that others can explore!</p>
+                {user?.role === 'admin' && (
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Create Public Map
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {publicMaps.map((map) => (
+                  <div key={map.id} className="bg-slate-800 rounded-xl border border-slate-700 hover:shadow-lg transition-shadow">
+                    <div className="h-32 bg-gradient-to-br from-pink-900 to-purple-900 rounded-t-xl flex items-center justify-center">
+                      <MapPin className="w-8 h-8 text-pink-400" />
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-semibold text-white mb-1">{map.name}</h4>
+                      <p className="text-sm text-slate-400 mb-4">Size: {map.dimensions}</p>
+                      <button
+                        onClick={() => navigate(`/map/${map.id}`)}
+                        className="w-full bg-pink-600 text-white py-2 px-3 rounded-lg hover:bg-pink-700 transition-colors text-sm"
+                      >
+                        Explore Map
                       </button>
                     </div>
                   </div>
