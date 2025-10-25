@@ -64,6 +64,7 @@ model User {
   createdAvatars  Avatar[]  @relation("AvatarCreator")
   createdElements Element[] @relation("ElementCreator")
   createdMaps     Map[]     @relation("MapCreator")
+  messages        Message[]
 
   @@map("users")
 }
@@ -77,6 +78,7 @@ model Space {
   ownerId   Int            @map("owner_id")
   owner     User           @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   elements  SpaceElement[]
+  messages  Message[]
 
   @@map("spaces")
 }
@@ -103,4 +105,17 @@ model SpaceElement {
   element   Element @relation(fields: [elementId], references: [id], onDelete: Cascade)
 
   @@map("space_elements")
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  spaceId     Int      @map("space_id")
+  userId      Int      @map("user_id")
+  displayName String   @map("display_name") @db.VarChar(255)
+  text        String   @db.VarChar(2000)
+  createdAt   DateTime @default(now()) @map("created_at")
+  space       Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
 }

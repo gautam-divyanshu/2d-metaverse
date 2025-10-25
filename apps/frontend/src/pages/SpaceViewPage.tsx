@@ -40,6 +40,14 @@ interface CurrentUser {
   userId: string;
 }
 
+interface ChatMessage {
+  id?: number;
+  userId: string;
+  displayName: string;
+  text: string;
+  createdAt: string;
+}
+
 const CELL_SIZE = 32; // pixels per grid cell
 
 export const SpaceViewPage = () => {
@@ -48,6 +56,7 @@ export const SpaceViewPage = () => {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
   
   const [space, setSpace] = useState<SpaceData | null>(null);
   const [users, setUsers] = useState<Map<string, User>>(new Map());
@@ -56,6 +65,8 @@ export const SpaceViewPage = () => {
   const [error, setError] = useState<string>('');
   const [zoom, setZoom] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState<string>('');
 
   // Check if user is the owner of this space
   const isOwner = space && user && space.ownerId === parseInt(user.id);
@@ -179,6 +190,11 @@ export const SpaceViewPage = () => {
             }
           });
           setUsers(userMap);
+          
+          // Load initial messages from the payload
+          if (message.payload.messages && Array.isArray(message.payload.messages)) {
+            setChatMessages(message.payload.messages);
+          }
           break;
         
         case 'user-joined':
@@ -240,6 +256,16 @@ export const SpaceViewPage = () => {
             y: message.payload.y
           } : null);
           break;
+        
+        case 'chat':
+          // Add new chat message
+          setChatMessages(prev => [...prev, {
+            userId: message.payload.userId,
+            displayName: message.payload.displayName,
+            text: message.payload.text,
+            createdAt: message.payload.createdAt
+          }]);
+          break;
       }
     };
 
@@ -261,22 +287,18 @@ export const SpaceViewPage = () => {
 
     switch (e.key) {
       case 'ArrowUp':
-      case 'w':
         e.preventDefault(); // Prevent scrolling
         newY = Math.max(0, currentUser.y - 1);
         break;
       case 'ArrowDown':
-      case 's':
         e.preventDefault(); // Prevent scrolling
         newY = Math.min(space!.height - 1, currentUser.y + 1);
         break;
       case 'ArrowLeft':
-      case 'a':
         e.preventDefault(); // Prevent scrolling
         newX = Math.max(0, currentUser.x - 1);
         break;
       case 'ArrowRight':
-      case 'd':
         e.preventDefault(); // Prevent scrolling
         newX = Math.min(space!.width - 1, currentUser.x + 1);
         break;
@@ -356,6 +378,29 @@ export const SpaceViewPage = () => {
     // Single click is disabled - use double-click to teleport or arrow keys to move
   };
 
+  const sendChatMessage = () => {
+    if (!newMessage.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !user) {
+      return;
+    }
+
+    wsRef.current.send(JSON.stringify({
+      type: 'chat',
+      payload: {
+        text: newMessage.trim(),
+        displayName: user.username || `User ${user.id}`
+      }
+    }));
+
+    setNewMessage('');
+  };
+
+  const handleChatKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  };
+
   useEffect(() => {
     const keyHandler = (e: KeyboardEvent) => {
       // Handle ESC key for fullscreen exit
@@ -397,6 +442,13 @@ export const SpaceViewPage = () => {
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Auto-scroll chat to the latest message
+  useEffect(() => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
   // Zoom functions - scrolling handles navigation
   const zoomInCentered = () => {
@@ -460,21 +512,37 @@ export const SpaceViewPage = () => {
 
     // Draw elements (all elements are obstacles/non-walkable)
     space.elements.forEach((element) => {
-      // All elements are obstacles - use solid color to indicate they block movement
-      ctx.fillStyle = '#dc2626'; // Red color to indicate obstacles
-      ctx.strokeStyle = '#991b1b'; // Darker red border
+      const elemX = element.x * CELL_SIZE;
+      const elemY = element.y * CELL_SIZE;
+      const elemWidth = element.element.width * CELL_SIZE;
+      const elemHeight = element.element.height * CELL_SIZE;
       
-      ctx.fillRect(
-        element.x * CELL_SIZE,
-        element.y * CELL_SIZE,
-        element.element.width * CELL_SIZE,
-        element.element.height * CELL_SIZE
-      );
-      ctx.strokeRect(
-        element.x * CELL_SIZE,
-        element.y * CELL_SIZE,
-        element.element.width * CELL_SIZE,
-        element.element.height * CELL_SIZE
+      // Use lighter red colors and rounded corners
+      ctx.fillStyle = '#fca5a5'; // Light red color for obstacles
+      ctx.strokeStyle = '#ef4444'; // Medium red border
+      ctx.lineWidth = 2;
+      
+      // Draw rounded rectangle for obstacles
+      const cornerRadius = 8;
+      ctx.beginPath();
+      ctx.roundRect(elemX, elemY, elemWidth, elemHeight, cornerRadius);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Add text label showing element ID (E{elementId})
+      ctx.fillStyle = '#7f1d1d'; // Dark red text
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Calculate center position for text
+      const centerX = elemX + elemWidth / 2;
+      const centerY = elemY + elemHeight / 2;
+      
+      ctx.fillText(
+        `E${element.element.id}`,
+        centerX,
+        centerY
       );
     });
 
@@ -657,30 +725,34 @@ export const SpaceViewPage = () => {
           
           {/* Canvas Container with Scrollable Area */}
           <div 
-            className={`canvas-container overflow-auto rounded-lg border border-slate-600 bg-slate-900 scroll-smooth ${
+            className={`canvas-container ${
               isFullscreen 
-                ? 'fixed inset-0 z-50 rounded-none border-none' 
-                : 'max-h-[70vh]'
+                ? 'fixed inset-0 z-50 flex bg-slate-900' 
+                : 'flex rounded-lg border border-slate-600 bg-slate-900 h-[60vh]'
             }`}
-            style={{ 
-              scrollBehavior: 'smooth',
-              overflowX: 'auto',
-              overflowY: 'auto'
-            }}
           >
-            <div
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: 'top left',
-                transition: 'transform 0.2s ease-out',
-                // Make the scrollable area much larger to allow full grid navigation
-                width: `${(space.width * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
-                height: `${(space.height * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
-                position: 'relative',
-                minWidth: '100%',
-                minHeight: '100%'
+            {/* Game Area (70% width in both normal and fullscreen modes) */}
+            <div 
+              className="flex-[0.7] overflow-auto"
+              style={{ 
+                scrollBehavior: 'smooth',
+                overflowX: 'auto',
+                overflowY: 'auto'
               }}
             >
+              <div
+                style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'top left',
+                  transition: 'transform 0.2s ease-out',
+                  // Make the scrollable area much larger to allow full grid navigation
+                  width: `${(space.width * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
+                  height: `${(space.height * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
+                  position: 'relative',
+                  minWidth: '100%',
+                  minHeight: '100%'
+                }}
+              >
               {/* Background padding area with subtle pattern */}
               <div 
                 className="absolute inset-0"
@@ -691,25 +763,95 @@ export const SpaceViewPage = () => {
                 }}
               />
               
-              {/* Canvas centered within the padded container */}
-              <canvas
-                ref={canvasRef}
-                width={space.width * CELL_SIZE}
-                height={space.height * CELL_SIZE}
-                onClick={handleCanvasClick}
-                onDoubleClick={handleCanvasDoubleClick}
-                className="block shadow-lg"
-                title="Double-click to teleport, use arrow keys to walk"
-                style={{
-                  position: 'absolute',
-                  left: '500px', // Center the canvas within the padded area
-                  top: '500px',   // Center the canvas within the padded area
-                  border: '2px solid rgba(59, 130, 246, 0.3)', // Subtle border to show game area
-                  borderRadius: '4px',
-                  cursor: 'default' // Normal cursor, no special pointer
-                }}
-              />
+                {/* Canvas centered within the padded container */}
+                <canvas
+                  ref={canvasRef}
+                  width={space.width * CELL_SIZE}
+                  height={space.height * CELL_SIZE}
+                  onClick={handleCanvasClick}
+                  onDoubleClick={handleCanvasDoubleClick}
+                  className="block shadow-lg"
+                  title="Double-click to teleport, use arrow keys to walk"
+                  style={{
+                    position: 'absolute',
+                    left: '500px', // Center the canvas within the padded area
+                    top: '500px',   // Center the canvas within the padded area
+                    border: '2px solid rgba(59, 130, 246, 0.3)', // Subtle border to show game area
+                    borderRadius: '4px',
+                    cursor: 'default' // Normal cursor, no special pointer
+                  }}
+                />
+              </div>
             </div>
+
+            {/* Chat Panel (30% width - always show when currentUser exists) */}
+            {currentUser && (
+              <div className="flex-[0.3] bg-slate-800 border-l border-slate-600 flex flex-col">
+                {/* Chat Header */}
+                <div className="p-4 border-b border-slate-600">
+                  <h3 className="text-white font-semibold">Group Chat</h3>
+                  <p className="text-slate-400 text-sm">{users.size + 1} users online</p>
+                </div>
+
+                {/* Chat Messages */}
+                <div ref={chatMessagesRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {chatMessages.length === 0 ? (
+                    <div className="text-slate-400 text-sm text-center py-8">
+                      No messages yet. Say hello! 👋
+                    </div>
+                  ) : (
+                    chatMessages.map((message, index) => (
+                      <div key={message.id || index} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className={`w-2 h-2 rounded-full ${
+                              message.userId === currentUser?.userId ? 'bg-green-500' : 'bg-orange-500'
+                            }`}
+                          />
+                          <span className="text-slate-300 text-xs font-medium">
+                            {message.displayName}
+                          </span>
+                          <span className="text-slate-500 text-xs">
+                            {new Date(message.createdAt).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                        </div>
+                        <div className="text-white text-sm ml-4 pl-2 border-l border-slate-600">
+                          {message.text}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Chat Input */}
+                <div className="p-4 border-t border-slate-600">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleChatKeyPress}
+                      placeholder="Type a message..."
+                      className="flex-1 bg-slate-700 text-white px-3 py-2 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500 text-sm"
+                      maxLength={2000}
+                    />
+                    <button
+                      onClick={sendChatMessage}
+                      disabled={!newMessage.trim()}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Send
+                    </button>
+                  </div>
+                  <p className="text-slate-500 text-xs mt-2">
+                    Press Enter to send • Chat history is saved
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -720,11 +862,11 @@ export const SpaceViewPage = () => {
             <span>You</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+            <div className="w-4 h-4 bg-orange-500 rounded-full border-2 border-white"></div>
             <span>Other Players</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-600 border border-red-800"></div>
+            <div className="w-4 h-4 bg-red-300 border-2 border-gray-700 rounded"></div>
             <span>Obstacles (Elements)</span>
           </div>
         </div>
