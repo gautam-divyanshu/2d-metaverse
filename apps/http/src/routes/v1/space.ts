@@ -147,6 +147,8 @@ spaceRouter.get("/all", userMiddleware, async (req, res) => {
       name: s.name,
       thumbnail: s.thumbnail,
       dimensions: `${s.width}x${s.height}`,
+      width: s.width,
+      height: s.height,
     })),
   });
 });
@@ -168,6 +170,8 @@ spaceRouter.get("/public", userMiddleware, async (req, res) => {
       name: s.name,
       thumbnail: s.thumbnail,
       dimensions: `${s.width}x${s.height}`,
+      width: s.width,
+      height: s.height,
       owner: s.owner.username,
       isOwner: s.ownerId === parseInt(req.userId!),
     })),

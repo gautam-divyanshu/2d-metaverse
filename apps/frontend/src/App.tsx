@@ -7,6 +7,8 @@ import { SignUpPage } from './pages/SignUpPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SpaceViewPage } from './pages/SpaceViewPage'
 import { SpaceEditorPage } from './pages/SpaceEditorPage'
+import { MapViewPage } from './pages/MapViewPage'
+import { MapEditorPage } from './pages/MapEditorPage'
 import { AdminPanelPage } from './pages/AdminPanelPage'
 
 function App() {
@@ -42,6 +44,24 @@ function App() {
               element={
                 <ProtectedRoute>
                   <SpaceEditorPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/map/:mapId" 
+              element={
+                <ProtectedRoute>
+                  <MapViewPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/map/:mapId/edit" 
+              element={
+                <ProtectedRoute>
+                  <MapEditorPage />
                 </ProtectedRoute>
               } 
             />

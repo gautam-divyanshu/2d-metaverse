@@ -33,6 +33,18 @@ export const AddElementSchema = z.object({
   y: z.number(),
 });
 
+export const AddMapElementSchema = z.object({
+  elementId: z.string(),
+  x: z.number(),
+  y: z.number(),
+});
+
+export const AddMapSpaceSchema = z.object({
+  spaceId: z.string(),
+  x: z.number(),
+  y: z.number(),
+});
+
 export const CreateElementSchema = z.object({
   imageUrl: z.string(),
   width: z.number(),

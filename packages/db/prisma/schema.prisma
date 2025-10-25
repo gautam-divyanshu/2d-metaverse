@@ -49,6 +49,8 @@ model Map {
   creatorId   Int          @map("creator_id")
   creator     User         @relation("MapCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   mapElements MapElement[]
+  mapSpaces   MapSpace[]
+  messages    Message[]
 
   @@map("maps")
 }
@@ -78,6 +80,7 @@ model Space {
   ownerId   Int            @map("owner_id")
   owner     User           @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   elements  SpaceElement[]
+  mapSpaces MapSpace[]
   messages  Message[]
 
   @@map("spaces")
@@ -95,6 +98,19 @@ model MapElement {
   @@map("map_elements")
 }
 
+model MapSpace {
+  id      Int   @id @default(autoincrement())
+  mapId   Int   @map("map_id")
+  spaceId Int   @map("space_id")
+  x       Int
+  y       Int
+  map     Map   @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  space   Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([mapId, spaceId])
+  @@map("map_spaces")
+}
+
 model SpaceElement {
   id        Int     @id @default(autoincrement())
   spaceId   Int     @map("space_id")
@@ -109,12 +125,14 @@ model SpaceElement {
 
 model Message {
   id          Int      @id @default(autoincrement())
-  spaceId     Int      @map("space_id")
+  spaceId     Int?     @map("space_id")
+  mapId       Int?     @map("map_id")
   userId      Int      @map("user_id")
   displayName String   @map("display_name") @db.VarChar(255)
   text        String   @db.VarChar(2000)
   createdAt   DateTime @default(now()) @map("created_at")
-  space       Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  space       Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  map         Map?     @relation(fields: [mapId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("messages")
