@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
-import { ArrowLeft, Users, Plus } from 'lucide-react';
+import { ArrowLeft, Users, Plus, Trash2 } from 'lucide-react';
 
 interface MapElement {
   id: number;
@@ -166,57 +166,11 @@ export const MapEditorPage = () => {
       return;
     }
 
-    // Check if clicking on delete button of existing elements
+    // Canvas click coordinates (for element/space placement)
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const container = canvas.parentElement;
-    if (!container) return;
-
-    const scrollLeft = container.scrollLeft;
-    const scrollTop = container.scrollTop;
-
-    const canvasX = e.clientX - rect.left + scrollLeft;
-    const canvasY = e.clientY - rect.top + scrollTop;
-
-    // Check if clicking on delete buttons
-    for (const element of map.elements) {
-      const elemX = element.x * CELL_SIZE;
-      const elemY = element.y * CELL_SIZE;
-      const elemWidth = element.element.width * CELL_SIZE;
-      
-      // Delete button is in top-right corner
-      const deleteButtonX = elemX + elemWidth - 8;
-      const deleteButtonY = elemY + 8;
-      const distanceToDeleteButton = Math.sqrt(
-        Math.pow(canvasX - deleteButtonX, 2) + Math.pow(canvasY - deleteButtonY, 2)
-      );
-
-      if (distanceToDeleteButton <= 8) {
-        await handleDeleteElement(element.id);
-        return; // Exit early after deleting
-      }
-    }
-
-    // Check if clicking on delete buttons of map spaces
-    for (const mapSpace of map.mapSpaces || []) {
-      const spaceX = mapSpace.x * CELL_SIZE;
-      const spaceY = mapSpace.y * CELL_SIZE;
-      const spaceWidth = mapSpace.width * CELL_SIZE;
-      
-      // Delete button is in top-right corner
-      const deleteButtonX = spaceX + spaceWidth - 8;
-      const deleteButtonY = spaceY + 8;
-      const distanceToDeleteButton = Math.sqrt(
-        Math.pow(canvasX - deleteButtonX, 2) + Math.pow(canvasY - deleteButtonY, 2)
-      );
-
-      if (distanceToDeleteButton <= 8) {
-        await handleDeleteMapSpace(mapSpace.id);
-        return; // Exit early after deleting
-      }
-    }
+    // Note: Delete functionality moved to sidebar for better UX
 
     // Handle element placement
     if (selectedElement) {
@@ -505,16 +459,7 @@ export const MapEditorPage = () => {
         centerY
       );
 
-      // Add delete button (small red circle in top-right)
-      ctx.fillStyle = '#dc2626';
-      ctx.beginPath();
-      ctx.arc(elemX + elemWidth - 8, elemY + 8, 6, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('×', elemX + elemWidth - 8, elemY + 10);
+      // Delete functionality available in sidebar
     });
 
     // Draw existing map spaces (walkable areas)
@@ -551,16 +496,7 @@ export const MapEditorPage = () => {
         centerY
       );
 
-      // Add delete button (small red circle in top-right)
-      ctx.fillStyle = '#dc2626';
-      ctx.beginPath();
-      ctx.arc(spaceX + spaceWidth - 8, spaceY + 8, 6, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('×', spaceX + spaceWidth - 8, spaceY + 10);
+      // Delete functionality available in sidebar
     });
 
     // Draw space elements (elements inside each space) 
@@ -834,6 +770,68 @@ export const MapEditorPage = () => {
                   >
                     Click to deselect
                   </button>
+                </div>
+              )}
+
+              {/* Placed Elements List */}
+              {map.elements && map.elements.length > 0 && (
+                <div className="mt-4 p-3 bg-slate-700 rounded-lg">
+                  <h3 className="text-white font-semibold mb-3">Placed Elements</h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {map.elements.map((element) => (
+                      <div
+                        key={element.id}
+                        className="flex justify-between items-center p-2 rounded bg-slate-600/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={element.element.imageUrl}
+                            alt="Element"
+                            className="w-6 h-6 object-cover rounded border border-slate-500"
+                          />
+                          <span className="text-white text-sm">
+                            Element at ({element.x}, {element.y})
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteElement(element.id)}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Delete Element"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Placed Map Spaces List */}
+              {map.mapSpaces && map.mapSpaces.length > 0 && (
+                <div className="mt-4 p-3 bg-slate-700 rounded-lg">
+                  <h3 className="text-white font-semibold mb-3">Placed Space Portals</h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {map.mapSpaces.map((mapSpace) => (
+                      <div
+                        key={mapSpace.id}
+                        className="flex justify-between items-center p-2 rounded bg-slate-600/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Users className="w-6 h-6 text-blue-400 p-1 bg-slate-800 rounded" />
+                          <span className="text-white text-sm">
+                            {mapSpace.spaceName} at ({mapSpace.x}, {mapSpace.y})
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteMapSpace(mapSpace.id)}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Remove Space Portal"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
