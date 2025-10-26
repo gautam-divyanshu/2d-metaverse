@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from '../contexts/AuthContext'
 
 interface Avatar {
@@ -135,22 +135,18 @@ export const SignUpPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-        <div
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float"
-          style={{ animationDelay: "2s" }}
-        ></div>
-      </div>
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 overflow-hidden p-6">
+      {/* Animated background blobs (same as SignIn) */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-[blob_7s_infinite]" />
+      <div className="absolute top-40 right-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-[blob_7s_infinite_2s]" />
+      <div className="absolute bottom-0 left-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl animate-[blob_7s_infinite_4s]" />
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 w-full max-w-lg"
+        transition={{ duration: 0.6 }}
+        className="relative z-10 w-full max-w-md"
       >
-        {/* Back to home */}
         <Link
           to="/"
           className="inline-flex items-center text-white/70 hover:text-white mb-8 transition-colors"
@@ -159,15 +155,13 @@ export const SignUpPage = () => {
           Back to Home
         </Link>
 
-        {/* Sign up form */}
-        <div className="glass-effect p-8">
+        <div className="backdrop-blur-xl bg-blue-950/40 border border-white/10 shadow-2xl rounded-2xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Join MetaVerse
-            </h1>
-            <p className="text-white/70">
-              Create your account and start exploring
-            </p>
+            <div className="flex justify-center space-x-2">
+              <Sparkles className="w-8 h-8 text-blue-400" />
+              <span className="text-2xl font-bold text-white">Join MetaVerse</span>
+            </div>
+            <p className="text-white/70 mt-2">Create your account and start exploring</p>
           </div>
 
           {error && (
@@ -194,9 +188,9 @@ export const SignUpPage = () => {
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
-                className="input-field"
                 placeholder="Choose a username"
                 required
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-white placeholder-white/50 focus:bg-white/15 focus:border-cyan-400 focus:outline-none transition-all duration-300"
               />
             </div>
 
@@ -214,9 +208,9 @@ export const SignUpPage = () => {
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="input-field pr-12"
                   placeholder="Create a password"
                   required
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-white placeholder-white/50 focus:bg-white/15 focus:border-cyan-400 focus:outline-none transition-all duration-300 pr-12"
                 />
                 <button
                   type="button"
@@ -245,9 +239,9 @@ export const SignUpPage = () => {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                className="input-field"
                 placeholder="Confirm your password"
                 required
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-white placeholder-white/50 focus:bg-white/15 focus:border-cyan-400 focus:outline-none transition-all duration-300"
               />
             </div>
 
@@ -266,7 +260,7 @@ export const SignUpPage = () => {
                       className={`
                         relative p-2 rounded-lg border-2 transition-all duration-200
                         ${
-                          selectedAvatar === avatar.id.toString()
+                        selectedAvatar === avatar.id.toString()
                             ? "border-blue-400 bg-blue-500/20"
                             : "border-white/20 bg-white/5 hover:border-white/40"
                         }
@@ -289,7 +283,11 @@ export const SignUpPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary w-full flex items-center justify-center"
+              className={`w-full flex items-center justify-center font-semibold text-white rounded-lg py-2.5 transition-all duration-300 shadow-lg ${
+                isLoading
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-400 opacity-70 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
               {isLoading ? (
                 <>
@@ -302,17 +300,12 @@ export const SignUpPage = () => {
             </button>
           </form>
 
-          <div className="mt-8 text-center">
-            <p className="text-white/70">
-              Already have an account?{" "}
-              <Link
-                to="/signin"
-                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-              >
-                Sign in
-              </Link>
-            </p>
-          </div>
+          <p className="text-center text-sm text-white/70 mt-8">
+            Already have an account?{' '}
+            <Link to="/signin" className="text-blue-400 hover:text-blue-500 font-medium transition-colors">
+              Sign in
+            </Link>
+          </p>
         </div>
       </motion.div>
     </div>
