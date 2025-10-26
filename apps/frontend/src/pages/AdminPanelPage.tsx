@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Package, Image, Map as MapIcon, ArrowLeft } from 'lucide-react';
+import { Package, Image, ArrowLeft, Globe, Settings, Trash2 } from 'lucide-react';
 
 interface AdminElement {
   id: number;
@@ -17,17 +17,17 @@ interface AdminAvatar {
   imageUrl: string;
 }
 
-interface AdminMap {
+interface AdminSpace {
   id: number;
   name: string;
-  width: number;
-  height: number;
+  dimensions: string;
+  ownerId: number;
 }
 
 export const AdminPanelPage = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'elements' | 'avatars' | 'maps'>('elements');
+  const [activeTab, setActiveTab] = useState<'elements' | 'avatars' | 'spaces'>('elements');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +35,7 @@ export const AdminPanelPage = () => {
   // Resource state
   const [elements, setElements] = useState<AdminElement[]>([]);
   const [avatars, setAvatars] = useState<AdminAvatar[]>([]);
-  const [maps, setMaps] = useState<AdminMap[]>([]);
+  const [spaces, setSpaces] = useState<AdminSpace[]>([]);
 
   // Element Form State
   const [elementForm, setElementForm] = useState({
@@ -51,24 +51,25 @@ export const AdminPanelPage = () => {
     imageUrl: ''
   });
 
-  // Map Form State
-  const [mapForm, setMapForm] = useState({
+  // Space Form State
+  const [spaceForm, setSpaceForm] = useState({
     name: '',
-    dimensions: '100x100'
+    width: 20,
+    height: 20
   });
 
   // Fetch admin's resources
   const fetchResources = async () => {
     setIsLoading(true);
     try {
-      const [elementsRes, avatarsRes, mapsRes] = await Promise.all([
+      const [elementsRes, avatarsRes, spacesRes] = await Promise.all([
         fetch('http://localhost:3000/api/v1/admin/elements', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         fetch('http://localhost:3000/api/v1/admin/avatars', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:3000/api/v1/admin/maps', {
+        fetch('http://localhost:3000/api/v1/space/all', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -82,10 +83,10 @@ export const AdminPanelPage = () => {
         const avatarsData = await avatarsRes.json();
         setAvatars(avatarsData);
       }
-      
-      if (mapsRes.ok) {
-        const mapsData = await mapsRes.json();
-        setMaps(mapsData);
+
+      if (spacesRes.ok) {
+        const spacesData = await spacesRes.json();
+        setSpaces(spacesData.spaces || []);
       }
     } catch (error) {
       console.error('Failed to fetch resources:', error);
@@ -158,37 +159,70 @@ export const AdminPanelPage = () => {
     }
   };
 
-  const handleCreateMap = async (e: React.FormEvent) => {
+  const handleCreateSpace = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/admin/map', {
+      const response = await fetch('http://localhost:3000/api/v1/space', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: mapForm.name,
-          dimensions: mapForm.dimensions,
-          defaultElements: []
+          name: spaceForm.name,
+          dimensions: `${spaceForm.width}x${spaceForm.height}`
         })
       });
 
       if (response.ok) {
-        alert('Map created successfully!');
+        alert('Space created successfully!');
         setShowCreateModal(false);
-        setMapForm({ name: '', dimensions: '100x100' });
+        setSpaceForm({ name: '', width: 20, height: 20 });
         fetchResources(); // Refresh the list
       } else {
-        alert('Failed to create map');
+        alert('Failed to create space');
       }
     } catch (error) {
-      console.error('Error creating map:', error);
+      console.error('Error creating space:', error);
       alert('Network error');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // Handler functions for space actions
+  const handleJoinSpace = (spaceId: number) => {
+    navigate(`/space/${spaceId}`);
+  };
+
+  const handleSpaceSettings = (spaceId: number) => {
+    navigate(`/space/${spaceId}/edit`);
+  };
+
+  const handleDeleteSpace = async (spaceId: number) => {
+    if (!confirm('Are you sure you want to delete this space?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/v1/space/${spaceId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        alert('Space deleted successfully!');
+        fetchResources(); // Refresh the list
+      } else {
+        alert('Failed to delete space');
+      }
+    } catch (error) {
+      console.error('Error deleting space:', error);
+      alert('Network error');
     }
   };
 
@@ -224,7 +258,7 @@ export const AdminPanelPage = () => {
         {/* Page Header */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Content Management</h2>
-          <p className="text-slate-400">Create and manage elements, avatars, and maps for the metaverse</p>
+          <p className="text-slate-400">Create and manage elements, avatars, and spaces for the metaverse</p>
         </div>
 
         {/* Tabs */}
@@ -252,15 +286,15 @@ export const AdminPanelPage = () => {
             Avatars
           </button>
           <button
-            onClick={() => setActiveTab('maps')}
+            onClick={() => setActiveTab('spaces')}
             className={`px-6 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'maps'
+              activeTab === 'spaces'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <MapIcon className="w-4 h-4" />
-            Maps
+            <Globe className="w-4 h-4" />
+            Spaces
           </button>
         </div>
 
@@ -271,7 +305,7 @@ export const AdminPanelPage = () => {
               <h3 className="text-lg font-semibold text-white">
                 {activeTab === 'elements' && 'Space Elements'}
                 {activeTab === 'avatars' && 'User Avatars'}
-                {activeTab === 'maps' && 'Space Maps'}
+                {activeTab === 'spaces' && 'User Spaces'}
               </h3>
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -352,25 +386,47 @@ export const AdminPanelPage = () => {
                   </div>
                 )}
 
-                {/* Maps List */}
-                {activeTab === 'maps' && (
+                {/* Spaces List */}
+                {activeTab === 'spaces' && (
                   <div className="space-y-4">
-                    {maps.length === 0 ? (
+                    {spaces.length === 0 ? (
                       <div className="text-center py-12 text-slate-400">
-                        <p>No maps created yet</p>
-                        <p className="text-sm mt-2">Click "Create New" to add your first map</p>
+                        <p>No spaces created yet</p>
+                        <p className="text-sm mt-2">Click "Create New" to add your first space</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {maps.map((map) => (
-                          <div key={map.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                        {spaces.map((space) => (
+                          <div key={space.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-white font-medium">{map.name}</span>
-                              <span className="text-slate-400 text-sm">#{map.id}</span>
+                              <span className="text-white font-medium">{space.name}</span>
+                              <span className="text-slate-400 text-sm">#{space.id}</span>
                             </div>
-                            <p className="text-slate-300 text-sm">
-                              Dimensions: {map.width}x{map.height}
+                            <p className="text-slate-300 text-sm mb-3">
+                              Dimensions: {space.dimensions}
                             </p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleJoinSpace(space.id)}
+                                className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                              >
+                                Join Space
+                              </button>
+                              <button
+                                onClick={() => handleSpaceSettings(space.id)}
+                                className="p-2 text-slate-400 hover:text-white border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors"
+                                title="Settings"
+                              >
+                                <Settings className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSpace(space.id)}
+                                className="p-2 text-slate-400 hover:text-red-400 border border-slate-600 rounded-lg hover:bg-red-900/20 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -388,7 +444,7 @@ export const AdminPanelPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
           <div className="bg-slate-800 rounded-xl max-w-md w-full p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-white mb-4">
-              Create New {activeTab === 'elements' ? 'Element' : activeTab === 'avatars' ? 'Avatar' : 'Map'}
+              Create New {activeTab === 'elements' ? 'Element' : activeTab === 'avatars' ? 'Avatar' : 'Space'}
             </h3>
             
             {activeTab === 'elements' && (
@@ -502,31 +558,46 @@ export const AdminPanelPage = () => {
               </form>
             )}
 
-            {activeTab === 'maps' && (
-              <form onSubmit={handleCreateMap} className="space-y-4">
+            {activeTab === 'spaces' && (
+              <form onSubmit={handleCreateSpace} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Map Name</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Space Name</label>
                   <input
                     type="text"
-                    value={mapForm.name}
-                    onChange={(e) => setMapForm({ ...mapForm, name: e.target.value })}
+                    value={spaceForm.name}
+                    onChange={(e) => setSpaceForm({ ...spaceForm, name: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
-                    placeholder="My Arena"
+                    placeholder="My Awesome Space"
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Dimensions</label>
-                  <select
-                    value={mapForm.dimensions}
-                    onChange={(e) => setMapForm({ ...mapForm, dimensions: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white"
-                  >
-                    <option value="50x50">Small (50x50)</option>
-                    <option value="100x100">Medium (100x100)</option>
-                    <option value="200x150">Large (200x150)</option>
-                    <option value="300x200">Extra Large (300x200)</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Width</label>
+                    <input
+                      type="number"
+                      min="10"
+                      max="1000"
+                      value={spaceForm.width}
+                      onChange={(e) => setSpaceForm({ ...spaceForm, width: parseInt(e.target.value) || 20 })}
+                      className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
+                      placeholder="20"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Height</label>
+                    <input
+                      type="number"
+                      min="10"
+                      max="1000"
+                      value={spaceForm.height}
+                      onChange={(e) => setSpaceForm({ ...spaceForm, height: parseInt(e.target.value) || 20 })}
+                      className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
+                      placeholder="20"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
