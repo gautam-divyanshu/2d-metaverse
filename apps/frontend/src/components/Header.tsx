@@ -80,6 +80,7 @@ export const Header: React.FC = () => {
               stroke="currentColor"
               strokeWidth="2"
             />
+
             <line
               x1="14"
               y1="12"
