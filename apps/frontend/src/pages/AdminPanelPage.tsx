@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Package, Image, ArrowLeft, Globe, Settings, Trash2 } from 'lucide-react';
+import { Header } from '../components/Header';
+import {
+  Package,
+  Image,
+  ArrowLeft,
+  Globe,
+  Settings,
+  Trash2,
+} from 'lucide-react';
 
 interface AdminElement {
   id: number;
@@ -25,9 +33,11 @@ interface AdminSpace {
 }
 
 export const AdminPanelPage = () => {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'elements' | 'avatars' | 'spaces'>('elements');
+  const [activeTab, setActiveTab] = useState<'elements' | 'avatars' | 'spaces'>(
+    'elements'
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,20 +52,20 @@ export const AdminPanelPage = () => {
     imageUrl: '',
     width: 1,
     height: 1,
-    static: false
+    static: false,
   });
 
   // Avatar Form State
   const [avatarForm, setAvatarForm] = useState({
     name: '',
-    imageUrl: ''
+    imageUrl: '',
   });
 
   // Space Form State
   const [spaceForm, setSpaceForm] = useState({
     name: '',
     width: 20,
-    height: 20
+    height: 20,
   });
 
   // Fetch admin's resources
@@ -64,21 +74,21 @@ export const AdminPanelPage = () => {
     try {
       const [elementsRes, avatarsRes, spacesRes] = await Promise.all([
         fetch('http://localhost:3000/api/v1/admin/elements', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         }),
         fetch('http://localhost:3000/api/v1/admin/avatars', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         }),
         fetch('http://localhost:3000/api/v1/space/all', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       if (elementsRes.ok) {
         const elementsData = await elementsRes.json();
         setElements(elementsData);
       }
-      
+
       if (avatarsRes.ok) {
         const avatarsData = await avatarsRes.json();
         setAvatars(avatarsData);
@@ -104,14 +114,17 @@ export const AdminPanelPage = () => {
     setIsCreating(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/admin/element', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(elementForm)
-      });
+      const response = await fetch(
+        'http://localhost:3000/api/v1/admin/element',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(elementForm),
+        }
+      );
 
       if (response.ok) {
         alert('Element created successfully!');
@@ -134,14 +147,17 @@ export const AdminPanelPage = () => {
     setIsCreating(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/admin/avatar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(avatarForm)
-      });
+      const response = await fetch(
+        'http://localhost:3000/api/v1/admin/avatar',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(avatarForm),
+        }
+      );
 
       if (response.ok) {
         alert('Avatar created successfully!');
@@ -168,12 +184,12 @@ export const AdminPanelPage = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: spaceForm.name,
-          dimensions: `${spaceForm.width}x${spaceForm.height}`
-        })
+          dimensions: `${spaceForm.width}x${spaceForm.height}`,
+        }),
       });
 
       if (response.ok) {
@@ -207,12 +223,15 @@ export const AdminPanelPage = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/space/${spaceId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `http://localhost:3000/api/v1/space/${spaceId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.ok) {
         alert('Space deleted successfully!');
@@ -228,37 +247,28 @@ export const AdminPanelPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="text-slate-300 hover:text-white flex items-center gap-2 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-              <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-slate-300">
-                {user?.username}
-                <span className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded-full">
-                  Admin
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
+
+      {/* Back Button */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="text-slate-300 hover:text-white flex items-center gap-2 transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2">Content Management</h2>
-          <p className="text-slate-400">Create and manage elements, avatars, and spaces for the metaverse</p>
+          <h2 className="text-3xl font-bold text-white mb-2">
+            Content Management
+          </h2>
+          <p className="text-slate-400">
+            Create and manage elements, avatars, and spaces for the metaverse
+          </p>
         </div>
 
         {/* Tabs */}
@@ -315,7 +325,7 @@ export const AdminPanelPage = () => {
               </button>
             </div>
           </div>
-          
+
           <div className="p-6">
             {isLoading ? (
               <div className="text-center py-12 text-slate-400">
@@ -329,17 +339,28 @@ export const AdminPanelPage = () => {
                     {elements.length === 0 ? (
                       <div className="text-center py-12 text-slate-400">
                         <p>No elements created yet</p>
-                        <p className="text-sm mt-2">Click "Create New" to add your first element</p>
+                        <p className="text-sm mt-2">
+                          Click "Create New" to add your first element
+                        </p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {elements.map((element) => (
-                          <div key={element.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                          <div
+                            key={element.id}
+                            className="bg-slate-700 rounded-lg p-4 border border-slate-600"
+                          >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-white font-medium">Element #{element.id}</span>
-                              <span className={`px-2 py-1 text-xs rounded ${
-                                element.isStatic ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
-                              }`}>
+                              <span className="text-white font-medium">
+                                Element #{element.id}
+                              </span>
+                              <span
+                                className={`px-2 py-1 text-xs rounded ${
+                                  element.isStatic
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-green-500 text-white'
+                                }`}
+                              >
                                 {element.isStatic ? 'Static' : 'Walkable'}
                               </span>
                             </div>
@@ -364,15 +385,24 @@ export const AdminPanelPage = () => {
                     {avatars.length === 0 ? (
                       <div className="text-center py-12 text-slate-400">
                         <p>No avatars created yet</p>
-                        <p className="text-sm mt-2">Click "Create New" to add your first avatar</p>
+                        <p className="text-sm mt-2">
+                          Click "Create New" to add your first avatar
+                        </p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {avatars.map((avatar) => (
-                          <div key={avatar.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                          <div
+                            key={avatar.id}
+                            className="bg-slate-700 rounded-lg p-4 border border-slate-600"
+                          >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-white font-medium">{avatar.name}</span>
-                              <span className="text-slate-400 text-sm">#{avatar.id}</span>
+                              <span className="text-white font-medium">
+                                {avatar.name}
+                              </span>
+                              <span className="text-slate-400 text-sm">
+                                #{avatar.id}
+                              </span>
                             </div>
                             {avatar.imageUrl && (
                               <p className="text-slate-400 text-xs truncate">
@@ -392,15 +422,24 @@ export const AdminPanelPage = () => {
                     {spaces.length === 0 ? (
                       <div className="text-center py-12 text-slate-400">
                         <p>No spaces created yet</p>
-                        <p className="text-sm mt-2">Click "Create New" to add your first space</p>
+                        <p className="text-sm mt-2">
+                          Click "Create New" to add your first space
+                        </p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {spaces.map((space) => (
-                          <div key={space.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                          <div
+                            key={space.id}
+                            className="bg-slate-700 rounded-lg p-4 border border-slate-600"
+                          >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-white font-medium">{space.name}</span>
-                              <span className="text-slate-400 text-sm">#{space.id}</span>
+                              <span className="text-white font-medium">
+                                {space.name}
+                              </span>
+                              <span className="text-slate-400 text-sm">
+                                #{space.id}
+                              </span>
                             </div>
                             <p className="text-slate-300 text-sm mb-3">
                               Dimensions: {space.dimensions}
@@ -444,17 +483,29 @@ export const AdminPanelPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
           <div className="bg-slate-800 rounded-xl max-w-md w-full p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-white mb-4">
-              Create New {activeTab === 'elements' ? 'Element' : activeTab === 'avatars' ? 'Avatar' : 'Space'}
+              Create New{' '}
+              {activeTab === 'elements'
+                ? 'Element'
+                : activeTab === 'avatars'
+                  ? 'Avatar'
+                  : 'Space'}
             </h3>
-            
+
             {activeTab === 'elements' && (
               <form onSubmit={handleCreateElement} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Image URL</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Image URL
+                  </label>
                   <input
                     type="url"
                     value={elementForm.imageUrl}
-                    onChange={(e) => setElementForm({ ...elementForm, imageUrl: e.target.value })}
+                    onChange={(e) =>
+                      setElementForm({
+                        ...elementForm,
+                        imageUrl: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
                     placeholder="https://example.com/element.png"
                     required
@@ -462,25 +513,39 @@ export const AdminPanelPage = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Width</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Width
+                    </label>
                     <input
                       type="number"
                       min="1"
                       max="10"
                       value={elementForm.width}
-                      onChange={(e) => setElementForm({ ...elementForm, width: parseInt(e.target.value) })}
+                      onChange={(e) =>
+                        setElementForm({
+                          ...elementForm,
+                          width: parseInt(e.target.value),
+                        })
+                      }
                       className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Height</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Height
+                    </label>
                     <input
                       type="number"
                       min="1"
                       max="10"
                       value={elementForm.height}
-                      onChange={(e) => setElementForm({ ...elementForm, height: parseInt(e.target.value) })}
+                      onChange={(e) =>
+                        setElementForm({
+                          ...elementForm,
+                          height: parseInt(e.target.value),
+                        })
+                      }
                       className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white"
                       required
                     />
@@ -491,10 +556,17 @@ export const AdminPanelPage = () => {
                     type="checkbox"
                     id="static"
                     checked={elementForm.static}
-                    onChange={(e) => setElementForm({ ...elementForm, static: e.target.checked })}
+                    onChange={(e) =>
+                      setElementForm({
+                        ...elementForm,
+                        static: e.target.checked,
+                      })
+                    }
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 bg-slate-700 border-slate-600"
                   />
-                  <label htmlFor="static" className="text-sm text-slate-300">Static (non-walkable)</label>
+                  <label htmlFor="static" className="text-sm text-slate-300">
+                    Static (non-walkable)
+                  </label>
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
@@ -518,22 +590,30 @@ export const AdminPanelPage = () => {
             {activeTab === 'avatars' && (
               <form onSubmit={handleCreateAvatar} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Avatar Name</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Avatar Name
+                  </label>
                   <input
                     type="text"
                     value={avatarForm.name}
-                    onChange={(e) => setAvatarForm({ ...avatarForm, name: e.target.value })}
+                    onChange={(e) =>
+                      setAvatarForm({ ...avatarForm, name: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
                     placeholder="Cool Avatar"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Image URL</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Image URL
+                  </label>
                   <input
                     type="url"
                     value={avatarForm.imageUrl}
-                    onChange={(e) => setAvatarForm({ ...avatarForm, imageUrl: e.target.value })}
+                    onChange={(e) =>
+                      setAvatarForm({ ...avatarForm, imageUrl: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
                     placeholder="https://example.com/avatar.png"
                     required
@@ -561,11 +641,15 @@ export const AdminPanelPage = () => {
             {activeTab === 'spaces' && (
               <form onSubmit={handleCreateSpace} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Space Name</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Space Name
+                  </label>
                   <input
                     type="text"
                     value={spaceForm.name}
-                    onChange={(e) => setSpaceForm({ ...spaceForm, name: e.target.value })}
+                    onChange={(e) =>
+                      setSpaceForm({ ...spaceForm, name: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
                     placeholder="My Awesome Space"
                     required
@@ -573,26 +657,40 @@ export const AdminPanelPage = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Width</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Width
+                    </label>
                     <input
                       type="number"
                       min="10"
                       max="1000"
                       value={spaceForm.width}
-                      onChange={(e) => setSpaceForm({ ...spaceForm, width: parseInt(e.target.value) || 20 })}
+                      onChange={(e) =>
+                        setSpaceForm({
+                          ...spaceForm,
+                          width: parseInt(e.target.value) || 20,
+                        })
+                      }
                       className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
                       placeholder="20"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Height</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Height
+                    </label>
                     <input
                       type="number"
                       min="10"
                       max="1000"
                       value={spaceForm.height}
-                      onChange={(e) => setSpaceForm({ ...spaceForm, height: parseInt(e.target.value) || 20 })}
+                      onChange={(e) =>
+                        setSpaceForm({
+                          ...spaceForm,
+                          height: parseInt(e.target.value) || 20,
+                        })
+                      }
                       className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-700 text-white placeholder-slate-400"
                       placeholder="20"
                       required

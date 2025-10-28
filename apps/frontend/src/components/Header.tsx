@@ -1,55 +1,150 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export const Header: React.FC = () => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     logout();
     navigate('/signin');
+    setShowDropdown(false);
   };
 
+  const handleCreateSpace = () => {
+    navigate('/admin');
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
-    <header className="bg-slate-900 text-white shadow-lg border-b border-slate-700">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-8">
-          <h1 
-            className="text-2xl font-bold cursor-pointer hover:text-blue-400 transition-colors"
-            onClick={() => navigate('/dashboard')}
+    <header className="bg-gray-800 text-white shadow-lg">
+      <div className="container mx-auto px-6 py-3 flex justify-between items-center">
+        {/* Logo */}
+        <div
+          className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => navigate('/dashboard')}
+        >
+          <svg
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="text-white"
           >
-            2D Metaverse
-          </h1>
-          <nav className="flex gap-6">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="relative group py-2 text-slate-300 hover:text-white transition-colors"
-            >
-              Dashboard
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 group-hover:w-full transition-all duration-300 ease-out"></span>
-            </button>
-            {isAdmin && (
-              <button
-                onClick={() => navigate('/admin')}
-                className="relative group py-2 text-slate-300 hover:text-white transition-colors"
-              >
-                Admin Panel
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-500 group-hover:w-full transition-all duration-300 ease-out"></span>
-              </button>
-            )}
-          </nav>
+            <circle cx="6" cy="6" r="2" fill="currentColor" />
+            <circle cx="18" cy="6" r="2" fill="currentColor" />
+            <circle cx="6" cy="18" r="2" fill="currentColor" />
+            <circle cx="18" cy="18" r="2" fill="currentColor" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
+            <line
+              x1="8"
+              y1="6"
+              x2="10"
+              y2="12"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <line
+              x1="14"
+              y1="12"
+              x2="16"
+              y2="6"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <line
+              x1="8"
+              y1="18"
+              x2="10"
+              y2="12"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <line
+              x1="14"
+              y1="12"
+              x2="16"
+              y2="18"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+          </svg>
         </div>
+
+        {/* Right section with Username and Create Space Button */}
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-300">
-            {user?.username} {isAdmin && <span className="text-blue-400">(Admin)</span>}
-          </span>
-          <button
-            onClick={handleLogout}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg"
-          >
-            Logout
-          </button>
+          {/* Username with Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="text-gray-300 hover:text-white transition-colors cursor-pointer"
+            >
+              {user?.username}
+            </button>
+
+            {showDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-gray-700 rounded-lg shadow-lg border border-gray-600 z-50">
+                <div className="py-2">
+                  <div className="px-4 py-2 text-sm text-gray-300 border-b border-gray-600">
+                    <div>{user?.username}</div>
+                    {isAdmin && (
+                      <div className="text-blue-400 text-xs">Admin</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Create Space Button - Only for Admins */}
+          {isAdmin && (
+            <button
+              onClick={handleCreateSpace}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+            >
+              <svg
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Create Space
+            </button>
+          )}
         </div>
       </div>
     </header>
