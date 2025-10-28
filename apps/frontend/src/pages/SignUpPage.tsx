@@ -31,15 +31,6 @@ export const SignUpPage = () => {
     }
   }, [isAuthenticated, authLoading, navigate])
 
-  // Show loading while auth is being checked
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-      </div>
-    )
-  }
-
   // Fetch available avatars
   useEffect(() => {
     const fetchAvatars = async () => {
@@ -58,6 +49,15 @@ export const SignUpPage = () => {
     };
     fetchAvatars();
   }, []);
+
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
