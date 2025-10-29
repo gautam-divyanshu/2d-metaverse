@@ -101,7 +101,7 @@ export const Header: React.FC = () => {
               onClick={() => setShowDropdown(!showDropdown)}
               className="text-gray-300 hover:text-white transition-colors cursor-pointer"
             >
-              {user?.username}
+              {user?.username + ' ▼'}
             </button>
 
             {showDropdown && (
@@ -131,28 +131,6 @@ export const Header: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Create Space Button - For Everyone */}
-          <button
-            onClick={() => {}}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
-          >
-            <svg
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Create Maps
-          </button>
         </div>
       </div>
     </header>
