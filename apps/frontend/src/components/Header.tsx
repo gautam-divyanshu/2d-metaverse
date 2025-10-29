@@ -14,8 +14,9 @@ export const Header: React.FC = () => {
     setShowDropdown(false);
   };
 
-  const handleCreateSpace = () => {
+  const handleAdminPanel = () => {
     navigate('/admin');
+    setShowDropdown(false);
   };
 
   // Close dropdown when clicking outside
@@ -112,6 +113,14 @@ export const Header: React.FC = () => {
                       <div className="text-blue-400 text-xs">Admin</div>
                     )}
                   </div>
+                  {isAdmin && (
+                    <button
+                      onClick={handleAdminPanel}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                    >
+                      Admin Panel
+                    </button>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
@@ -123,29 +132,27 @@ export const Header: React.FC = () => {
             )}
           </div>
 
-          {/* Create Space Button - Only for Admins */}
-          {isAdmin && (
-            <button
-              onClick={handleCreateSpace}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+          {/* Create Space Button - For Everyone */}
+          <button
+            onClick={() => {}}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            <svg
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Create Space
-            </button>
-          )}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Create Maps
+          </button>
         </div>
       </div>
     </header>
