@@ -18,7 +18,6 @@ interface ChatProps {
 }
 
 export const Chat = ({
-  spaceId,
   currentUserId,
   isFullscreen,
   onSendMessage,

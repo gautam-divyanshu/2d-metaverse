@@ -238,7 +238,6 @@ export class GameScene extends Scene {
             user.username,
             user.x,
             user.y,
-            user.avatar,
             false
           );
         }
@@ -249,7 +248,6 @@ export class GameScene extends Scene {
         payload.username,
         payload.spawn.x,
         payload.spawn.y,
-        payload.avatar,
         true
       );
     });
@@ -293,8 +291,7 @@ export class GameScene extends Scene {
           String(payload.userId),
           payload.username,
           payload.x,
-          payload.y,
-          payload.avatar
+          payload.y
         );
       });
       this.load.start();
@@ -455,7 +452,6 @@ export class GameScene extends Scene {
     username: string,
     x: number,
     y: number,
-    avatar: Avatar,
     isCurrent = false
   ) {
     // Create animations
