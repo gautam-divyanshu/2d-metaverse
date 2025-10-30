@@ -22,8 +22,11 @@ export class User {
   public username?: string;
   public avatar?: { avatarIdle: string; avatarRun: string };
   private space?: { spaceId: string; height: number; width: number };
-  private x: number;
-  private y: number;
+  private spaceId?: string;
+  private mapId?: string;
+  private roomType?: 'space' | 'map';
+  public x: number;
+  public y: number;
   private ws: WebSocket;
 
   constructor(ws: WebSocket) {
@@ -302,20 +305,161 @@ export class User {
     }
   }
 
+  async validateMovement(
+    newX: number,
+    newY: number,
+    xDisplacement: number,
+    yDisplacement: number,
+    isTeleport: boolean = false
+  ): Promise<boolean> {
+    try {
+      // 1. Movement validation: allow teleport or single step movement
+      if (
+        !isTeleport &&
+        !(
+          (xDisplacement == 1 && yDisplacement == 0) ||
+          (xDisplacement == 0 && yDisplacement == 1)
+        )
+      ) {
+        return false;
+      }
+
+      // 2. Quick check: collision with other players (no DB query needed)
+      const roomKey = this.spaceId
+        ? `space_${this.spaceId}`
+        : `map_${this.mapId}`;
+      const roomUsers = RoomManager.getInstance().rooms.get(roomKey) || [];
+      for (const otherUser of roomUsers) {
+        if (
+          otherUser.id !== this.id &&
+          otherUser.x === newX &&
+          otherUser.y === newY
+        ) {
+          return false; // Player collision
+        }
+      }
+
+      // 3. Get room data based on type
+      if (this.spaceId) {
+        // Handle space validation
+        const space = await client.space.findFirst({
+          where: { id: parseInt(this.spaceId) },
+          select: {
+            width: true,
+            height: true,
+            elements: {
+              select: {
+                x: true,
+                y: true,
+                element: {
+                  select: {
+                    width: true,
+                    height: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!space) {
+          return false;
+        }
+
+        // Check boundaries
+        if (
+          newX < 0 ||
+          newX >= space.width ||
+          newY < 0 ||
+          newY >= space.height
+        ) {
+          return false;
+        }
+
+        // Check element collisions
+        for (const spaceElement of space.elements) {
+          const element = spaceElement.element;
+
+          if (
+            newX >= spaceElement.x &&
+            newX < spaceElement.x + element.width &&
+            newY >= spaceElement.y &&
+            newY < spaceElement.y + element.height
+          ) {
+            return false; // Element collision
+          }
+        }
+      } else if (this.mapId) {
+        // Handle map validation
+        const map = await client.map.findFirst({
+          where: { id: parseInt(this.mapId) },
+          select: {
+            width: true,
+            height: true,
+            mapElements: {
+              select: {
+                x: true,
+                y: true,
+                element: {
+                  select: {
+                    width: true,
+                    height: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (!map) {
+          return false;
+        }
+
+        // Check boundaries
+        if (newX < 0 || newX >= map.width || newY < 0 || newY >= map.height) {
+          return false;
+        }
+
+        // Check element collisions
+        for (const mapElement of map.mapElements) {
+          const element = mapElement.element;
+
+          if (
+            newX >= mapElement.x &&
+            newX < mapElement.x + element.width &&
+            newY >= mapElement.y &&
+            newY < mapElement.y + element.height
+          ) {
+            return false; // Element collision
+          }
+        }
+      } else {
+        return false; // Neither space nor map
+      }
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   destroy() {
-    if (this.space) {
+    const roomKey = this.spaceId
+      ? `space_${this.spaceId}`
+      : `map_${this.mapId}`;
+
+    if (roomKey && (this.spaceId || this.mapId)) {
       RoomManager.getInstance().broadcast(
         {
-          class: 'game',
           type: 'user-left',
           payload: {
             userId: this.userId,
           },
         },
         this,
-        this.space.spaceId
+        roomKey
       );
-      RoomManager.getInstance().removeUser(this.space.spaceId, this);
+      RoomManager.getInstance().removeUser(roomKey, this);
     }
   }
 

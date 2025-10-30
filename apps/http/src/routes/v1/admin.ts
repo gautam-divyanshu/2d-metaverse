@@ -1,5 +1,5 @@
-import { Router } from "express";
-import { adminMiddleware } from "../../middleware/admin";
+import { Router } from 'express';
+import { adminMiddleware } from '../../middleware/admin';
 import {
   AddElementSchema,
   AddMapElementSchema,
@@ -9,15 +9,15 @@ import {
   CreateMapSchema,
   UpdateElementSchema,
   DeleteElementSchema,
-} from "../../types";
-import client from "@repo/db/client";
+} from '../../types';
+import client from '@repo/db/client';
 export const adminRouter = Router();
 adminRouter.use(adminMiddleware);
 
-adminRouter.post("/element", async (req, res) => {
+adminRouter.post('/element', async (req, res) => {
   const parsedData = CreateElementSchema.safeParse(req.body);
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
 
@@ -36,10 +36,10 @@ adminRouter.post("/element", async (req, res) => {
   });
 });
 
-adminRouter.put("/element/:elementId", async (req, res) => {
+adminRouter.put('/element/:elementId', async (req, res) => {
   const parsedData = UpdateElementSchema.safeParse(req.body);
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
 
@@ -52,7 +52,7 @@ adminRouter.put("/element/:elementId", async (req, res) => {
   });
 
   if (!element) {
-    res.status(404).json({ message: "Element not found or access denied" });
+    res.status(404).json({ message: 'Element not found or access denied' });
     return;
   }
 
@@ -64,14 +64,14 @@ adminRouter.put("/element/:elementId", async (req, res) => {
       imageUrl: parsedData.data.imageUrl,
     },
   });
-  
-  res.json({ message: "Element updated" });
+
+  res.json({ message: 'Element updated' });
 });
 
-adminRouter.post("/avatar", async (req, res) => {
+adminRouter.post('/avatar', async (req, res) => {
   const parsedData = CreateAvatarSchema.safeParse(req.body);
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
   const avatar = await client.avatar.create({
@@ -84,26 +84,38 @@ adminRouter.post("/avatar", async (req, res) => {
   res.json({ avatarId: avatar.id });
 });
 
-adminRouter.post("/map", async (req, res) => {
+adminRouter.post('/map', async (req, res) => {
   const parsedData = CreateMapSchema.safeParse(req.body);
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
-  const map = await client.map.create({
-    data: {
-      name: parsedData.data.name,
-      width: parseInt(parsedData.data.dimensions.split("x")[0]),
-      height: parseInt(parsedData.data.dimensions.split("x")[1]),
-      creatorId: parseInt(req.userId!), // Set the creator to the current admin user
-      mapElements: {
-        create: parsedData.data.defaultElements.map((e) => ({
-          elementId: parseInt(e.elementId),
-          x: e.x,
-          y: e.y,
-        })),
-      },
+
+  // Check if this should be a template or a regular map
+  const isTemplate = req.body.isTemplate === true;
+
+  const mapData: any = {
+    name: parsedData.data.name,
+    width: parseInt(parsedData.data.dimensions.split('x')[0]),
+    height: parseInt(parsedData.data.dimensions.split('x')[1]),
+    creatorId: parseInt(req.userId!),
+    isTemplate: isTemplate,
+    mapElements: {
+      create: parsedData.data.defaultElements.map((e) => ({
+        elementId: parseInt(e.elementId),
+        x: e.x,
+        y: e.y,
+      })),
     },
+  };
+
+  // Only add accessCode if it's not a template
+  if (!isTemplate && req.body.accessCode) {
+    mapData.accessCode = req.body.accessCode;
+  }
+
+  const map = await client.map.create({
+    data: mapData,
   });
 
   res.json({
@@ -112,7 +124,7 @@ adminRouter.post("/map", async (req, res) => {
 });
 
 // Get elements created by current admin
-adminRouter.get("/elements", async (req, res) => {
+adminRouter.get('/elements', async (req, res) => {
   const elements = await client.element.findMany({
     where: {
       creatorId: parseInt(req.userId!),
@@ -129,7 +141,7 @@ adminRouter.get("/elements", async (req, res) => {
 });
 
 // Get avatars created by current admin
-adminRouter.get("/avatars", async (req, res) => {
+adminRouter.get('/avatars', async (req, res) => {
   const avatars = await client.avatar.findMany({
     where: {
       creatorId: parseInt(req.userId!),
@@ -144,7 +156,7 @@ adminRouter.get("/avatars", async (req, res) => {
 });
 
 // Get maps created by current admin
-adminRouter.get("/maps", async (req, res) => {
+adminRouter.get('/maps', async (req, res) => {
   const maps = await client.map.findMany({
     where: {
       creatorId: parseInt(req.userId!),
@@ -154,15 +166,26 @@ adminRouter.get("/maps", async (req, res) => {
       name: true,
       width: true,
       height: true,
+      accessCode: true,
+      isTemplate: true,
     },
   });
-  res.json(maps);
+  res.json({
+    maps: maps.map((m) => ({
+      id: m.id,
+      name: m.name,
+      width: m.width,
+      height: m.height,
+      accessCode: m.accessCode, // Will be null for templates
+      isTemplate: m.isTemplate,
+    })),
+  });
 });
 
 // Get specific map details with elements
-adminRouter.get("/map/:mapId", async (req, res) => {
+adminRouter.get('/map/:mapId', async (req, res) => {
   const mapId = parseInt(req.params.mapId);
-  
+
   const map = await client.map.findFirst({
     where: {
       id: mapId,
@@ -191,7 +214,7 @@ adminRouter.get("/map/:mapId", async (req, res) => {
   });
 
   if (!map) {
-    res.status(404).json({ message: "Map not found or access denied" });
+    res.status(404).json({ message: 'Map not found or access denied' });
     return;
   }
 
@@ -240,12 +263,12 @@ adminRouter.get("/map/:mapId", async (req, res) => {
 });
 
 // Add element to map
-adminRouter.post("/map/:mapId/element", async (req, res) => {
+adminRouter.post('/map/:mapId/element', async (req, res) => {
   const mapId = parseInt(req.params.mapId);
   const parsedData = AddMapElementSchema.safeParse(req.body);
-  
+
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
 
@@ -258,7 +281,7 @@ adminRouter.post("/map/:mapId/element", async (req, res) => {
   });
 
   if (!map) {
-    res.status(404).json({ message: "Map not found or access denied" });
+    res.status(404).json({ message: 'Map not found or access denied' });
     return;
   }
 
@@ -275,12 +298,12 @@ adminRouter.post("/map/:mapId/element", async (req, res) => {
 });
 
 // Remove element from map
-adminRouter.delete("/map/:mapId/element", async (req, res) => {
+adminRouter.delete('/map/:mapId/element', async (req, res) => {
   const mapId = parseInt(req.params.mapId);
   const parsedData = DeleteElementSchema.safeParse(req.body);
-  
+
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
 
@@ -293,7 +316,7 @@ adminRouter.delete("/map/:mapId/element", async (req, res) => {
   });
 
   if (!map) {
-    res.status(404).json({ message: "Map not found or access denied" });
+    res.status(404).json({ message: 'Map not found or access denied' });
     return;
   }
 
@@ -303,16 +326,16 @@ adminRouter.delete("/map/:mapId/element", async (req, res) => {
     },
   });
 
-  res.json({ message: "Element removed" });
+  res.json({ message: 'Element removed' });
 });
 
 // Add space to map
-adminRouter.post("/map/:mapId/space", async (req, res) => {
+adminRouter.post('/map/:mapId/space', async (req, res) => {
   const mapId = parseInt(req.params.mapId);
   const parsedData = AddMapSpaceSchema.safeParse(req.body);
-  
+
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
 
@@ -325,7 +348,7 @@ adminRouter.post("/map/:mapId/space", async (req, res) => {
   });
 
   if (!map) {
-    res.status(404).json({ message: "Map not found or access denied" });
+    res.status(404).json({ message: 'Map not found or access denied' });
     return;
   }
 
@@ -337,14 +360,17 @@ adminRouter.post("/map/:mapId/space", async (req, res) => {
   });
 
   if (!space) {
-    res.status(404).json({ message: "Space not found" });
+    res.status(404).json({ message: 'Space not found' });
     return;
   }
 
   // Check if the space fits within the map bounds
-  if (parsedData.data.x + space.width > map.width || 
-      parsedData.data.y + space.height > map.height ||
-      parsedData.data.x < 0 || parsedData.data.y < 0) {
+  if (
+    parsedData.data.x + space.width > map.width ||
+    parsedData.data.y + space.height > map.height ||
+    parsedData.data.x < 0 ||
+    parsedData.data.y < 0
+  ) {
     res.status(400).json({ message: "Space doesn't fit within map bounds" });
     return;
   }
@@ -352,12 +378,12 @@ adminRouter.post("/map/:mapId/space", async (req, res) => {
   // Check for collisions with existing elements and spaces
   const existingMapElements = await client.mapElement.findMany({
     where: { mapId: mapId },
-    include: { element: true }
+    include: { element: true },
   });
 
   const existingMapSpaces = await client.mapSpace.findMany({
     where: { mapId: mapId },
-    include: { space: true }
+    include: { space: true },
   });
 
   // Check collision with elements
@@ -367,9 +393,15 @@ adminRouter.post("/map/:mapId/space", async (req, res) => {
     const spaceEndX = parsedData.data.x + space.width;
     const spaceEndY = parsedData.data.y + space.height;
 
-    if (!(parsedData.data.x >= elemEndX || spaceEndX <= mapElement.x || 
-          parsedData.data.y >= elemEndY || spaceEndY <= mapElement.y)) {
-      res.status(400).json({ message: "Space collides with existing element" });
+    if (
+      !(
+        parsedData.data.x >= elemEndX ||
+        spaceEndX <= mapElement.x ||
+        parsedData.data.y >= elemEndY ||
+        spaceEndY <= mapElement.y
+      )
+    ) {
+      res.status(400).json({ message: 'Space collides with existing element' });
       return;
     }
   }
@@ -381,9 +413,15 @@ adminRouter.post("/map/:mapId/space", async (req, res) => {
     const spaceEndX = parsedData.data.x + space.width;
     const spaceEndY = parsedData.data.y + space.height;
 
-    if (!(parsedData.data.x >= otherSpaceEndX || spaceEndX <= mapSpace.x || 
-          parsedData.data.y >= otherSpaceEndY || spaceEndY <= mapSpace.y)) {
-      res.status(400).json({ message: "Space collides with existing space" });
+    if (
+      !(
+        parsedData.data.x >= otherSpaceEndX ||
+        spaceEndX <= mapSpace.x ||
+        parsedData.data.y >= otherSpaceEndY ||
+        spaceEndY <= mapSpace.y
+      )
+    ) {
+      res.status(400).json({ message: 'Space collides with existing space' });
       return;
     }
   }
@@ -401,12 +439,12 @@ adminRouter.post("/map/:mapId/space", async (req, res) => {
 });
 
 // Remove space from map
-adminRouter.delete("/map/:mapId/space", async (req, res) => {
+adminRouter.delete('/map/:mapId/space', async (req, res) => {
   const mapId = parseInt(req.params.mapId);
   const parsedData = DeleteElementSchema.safeParse(req.body);
-  
+
   if (!parsedData.success) {
-    res.status(400).json({ message: "Validation failed" });
+    res.status(400).json({ message: 'Validation failed' });
     return;
   }
 
@@ -419,7 +457,7 @@ adminRouter.delete("/map/:mapId/space", async (req, res) => {
   });
 
   if (!map) {
-    res.status(404).json({ message: "Map not found or access denied" });
+    res.status(404).json({ message: 'Map not found or access denied' });
     return;
   }
 
@@ -429,5 +467,5 @@ adminRouter.delete("/map/:mapId/space", async (req, res) => {
     },
   });
 
-  res.json({ message: "Space removed from map" });
+  res.json({ message: 'Space removed from map' });
 });

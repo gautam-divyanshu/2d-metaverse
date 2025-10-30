@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Header } from '../components/Header';
-import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Maximize, Minimize } from 'lucide-react';
+import {
+  ArrowLeft,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Maximize,
+  Minimize,
+} from 'lucide-react';
 
 interface MapElement {
   id: number;
@@ -83,7 +90,7 @@ export const MapViewPage = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
-  
+
   const [map, setMap] = useState<MapData | null>(null);
   const [users, setUsers] = useState<Map<string, User>>(new Map());
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -110,7 +117,7 @@ export const MapViewPage = () => {
     if (map && user) {
       connectWebSocket();
     }
-    
+
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
@@ -124,7 +131,7 @@ export const MapViewPage = () => {
       const animationId = requestAnimationFrame(() => {
         drawCanvas();
       });
-      
+
       return () => cancelAnimationFrame(animationId);
     }
   }, [map, currentUser, users]);
@@ -133,12 +140,15 @@ export const MapViewPage = () => {
     try {
       console.log('Fetching map data for mapId:', mapId);
       console.log('Token:', token);
-      
-      const response = await fetch(`http://localhost:3000/api/v1/map/${mapId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+
+      const response = await fetch(
+        `http://localhost:3000/api/v1/map/${mapId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
@@ -166,19 +176,21 @@ export const MapViewPage = () => {
     if (wsRef.current) {
       wsRef.current.close();
     }
-    
+
     const ws = new WebSocket('ws://localhost:3001');
     wsRef.current = ws;
 
     ws.onopen = () => {
       // Join the map
-      ws.send(JSON.stringify({
-        type: 'join',
-        payload: {
-          mapId: parseInt(mapId!),
-          token: token
-        }
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'join',
+          payload: {
+            mapId: parseInt(mapId!),
+            token: token,
+          },
+        })
+      );
     };
 
     ws.onmessage = (event) => {
@@ -189,26 +201,26 @@ export const MapViewPage = () => {
           // Initialize current user position
           const spawnX = message.payload.spawn.x;
           const spawnY = message.payload.spawn.y;
-          
+
           setCurrentUser({
             x: spawnX,
             y: spawnY,
-            userId: message.payload.userId
+            userId: message.payload.userId,
           });
-          
+
           // Load chat messages from server
           if (message.payload.messages) {
             setChatMessages(message.payload.messages);
           }
-          
+
           // Reset zoom to 100% (normal view)
           setZoom(1);
-          
+
           // Center the scroll position on the player's spawn location
           setTimeout(() => {
             centerScrollOnPlayer(spawnX, spawnY, false);
           }, 100);
-          
+
           // Initialize other users from the payload
           const userMap = new Map();
           message.payload.users.forEach((u: any) => {
@@ -216,76 +228,90 @@ export const MapViewPage = () => {
               userMap.set(u.userId, {
                 id: u.userId,
                 x: u.x || 0,
-                y: u.y || 0
+                y: u.y || 0,
               });
             }
           });
           setUsers(userMap);
           break;
-        
+
         case 'user-joined':
-          setUsers(prev => {
+          setUsers((prev) => {
             const newUsers = new Map(prev);
-            if (message.payload.userId !== currentUser?.userId && !newUsers.has(message.payload.userId)) {
+            if (
+              message.payload.userId !== currentUser?.userId &&
+              !newUsers.has(message.payload.userId)
+            ) {
               newUsers.set(message.payload.userId, {
                 id: message.payload.userId,
                 x: message.payload.x || 0,
-                y: message.payload.y || 0
+                y: message.payload.y || 0,
               });
             }
             return newUsers;
           });
           break;
-        
+
         case 'user-left':
-          setUsers(prev => {
+          setUsers((prev) => {
             const newUsers = new Map(prev);
             newUsers.delete(message.payload.userId);
             return newUsers;
           });
           break;
-        
+
         case 'movement':
           if (message.payload.userId !== currentUser?.userId) {
-            setUsers(prev => {
+            setUsers((prev) => {
               const newUsers = new Map(prev);
               const user = newUsers.get(message.payload.userId);
               if (user) {
                 newUsers.set(message.payload.userId, {
                   ...user,
                   x: message.payload.x,
-                  y: message.payload.y
+                  y: message.payload.y,
                 });
               }
               return newUsers;
             });
           }
           break;
-        
+
         case 'movement-accepted':
-          setCurrentUser(prev => prev ? {
-            ...prev,
-            x: message.payload.x,
-            y: message.payload.y
-          } : null);
+          setCurrentUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  x: message.payload.x,
+                  y: message.payload.y,
+                }
+              : null
+          );
           break;
-        
+
         case 'movement-rejected':
-          setCurrentUser(prev => prev ? {
-            ...prev,
-            x: message.payload.x,
-            y: message.payload.y
-          } : null);
+          setCurrentUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  x: message.payload.x,
+                  y: message.payload.y,
+                }
+              : null
+          );
           break;
-        
+
         case 'chat':
-          setChatMessages(prev => [...prev, {
-            id: message.payload.id,
-            userId: message.payload.userId,
-            displayName: message.payload.displayName,
-            text: message.payload.text,
-            createdAt: message.payload.createdAt
-          }]);
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              id: message.payload.id,
+              userId: message.payload.userId,
+              displayName: message.payload.displayName,
+              text: message.payload.text,
+              createdAt: message.payload.createdAt,
+            },
+          ]);
           break;
       }
     };
@@ -301,7 +327,12 @@ export const MapViewPage = () => {
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (
+      !currentUser ||
+      !wsRef.current ||
+      wsRef.current.readyState !== WebSocket.OPEN
+    )
+      return;
 
     let newX = currentUser.x;
     let newY = currentUser.y;
@@ -328,25 +359,36 @@ export const MapViewPage = () => {
     }
 
     if (newX !== currentUser.x || newY !== currentUser.y) {
-      setCurrentUser(prev => prev ? {
-        ...prev,
-        x: newX,
-        y: newY
-      } : null);
-      
-      wsRef.current.send(JSON.stringify({
-        type: 'move',
-        payload: {
-          x: newX,
-          y: newY,
-          userId: currentUser.userId
-        }
-      }));
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              x: newX,
+              y: newY,
+            }
+          : null
+      );
+
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'move',
+          payload: {
+            x: newX,
+            y: newY,
+            userId: currentUser.userId,
+          },
+        })
+      );
     }
   };
 
   const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !map) {
+    if (
+      !currentUser ||
+      !wsRef.current ||
+      wsRef.current.readyState !== WebSocket.OPEN ||
+      !map
+    ) {
       return;
     }
 
@@ -363,35 +405,48 @@ export const MapViewPage = () => {
       return;
     }
 
-    setCurrentUser(prev => prev ? {
-      ...prev,
-      x: x,
-      y: y
-    } : null);
+    setCurrentUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            x: x,
+            y: y,
+          }
+        : null
+    );
 
-    wsRef.current.send(JSON.stringify({
-      type: 'move',
-      payload: {
-        x: x,
-        y: y,
-        userId: currentUser.userId,
-        teleport: true
-      }
-    }));
+    wsRef.current.send(
+      JSON.stringify({
+        type: 'move',
+        payload: {
+          x: x,
+          y: y,
+          userId: currentUser.userId,
+          teleport: true,
+        },
+      })
+    );
   };
 
   const sendChatMessage = () => {
-    if (!newMessage.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !user) {
+    if (
+      !newMessage.trim() ||
+      !wsRef.current ||
+      wsRef.current.readyState !== WebSocket.OPEN ||
+      !user
+    ) {
       return;
     }
 
-    wsRef.current.send(JSON.stringify({
-      type: 'chat',
-      payload: {
-        text: newMessage.trim(),
-        displayName: user.username || `User ${user.id}`
-      }
-    }));
+    wsRef.current.send(
+      JSON.stringify({
+        type: 'chat',
+        payload: {
+          text: newMessage.trim(),
+          displayName: user.username || `User ${user.id}`,
+        },
+      })
+    );
 
     setNewMessage('');
   };
@@ -409,7 +464,7 @@ export const MapViewPage = () => {
         exitFullscreen();
         return;
       }
-      
+
       handleKeyDown(e);
     };
 
@@ -418,7 +473,9 @@ export const MapViewPage = () => {
   }, [currentUser, map, isFullscreen]);
 
   const enterFullscreen = () => {
-    const canvasContainer = document.querySelector('.canvas-container') as HTMLElement;
+    const canvasContainer = document.querySelector(
+      '.canvas-container'
+    ) as HTMLElement;
     if (canvasContainer && canvasContainer.requestFullscreen) {
       canvasContainer.requestFullscreen();
       setIsFullscreen(true);
@@ -438,7 +495,8 @@ export const MapViewPage = () => {
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    return () =>
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   useEffect(() => {
@@ -455,21 +513,25 @@ export const MapViewPage = () => {
     setZoom(Math.max(0.25, zoom - 0.25));
   };
 
-  const centerScrollOnPlayer = (playerX: number, playerY: number, smooth = false) => {
+  const centerScrollOnPlayer = (
+    playerX: number,
+    playerY: number,
+    smooth = false
+  ) => {
     const canvas = canvasRef.current;
     const scrollContainer = canvas?.parentElement?.parentElement;
     if (canvas && scrollContainer) {
       const playerCanvasX = playerX * CELL_SIZE + CELL_SIZE / 2 + 500;
       const playerCanvasY = playerY * CELL_SIZE + CELL_SIZE / 2 + 500;
-      
+
       const scrollLeft = playerCanvasX - scrollContainer.clientWidth / 2;
       const scrollTop = playerCanvasY - scrollContainer.clientHeight / 2;
-      
+
       if (smooth) {
         scrollContainer.scrollTo({
           left: Math.max(0, scrollLeft),
           top: Math.max(0, scrollTop),
-          behavior: 'smooth'
+          behavior: 'smooth',
         });
       } else {
         scrollContainer.scrollLeft = Math.max(0, scrollLeft);
@@ -511,33 +573,29 @@ export const MapViewPage = () => {
       const elemY = element.y * CELL_SIZE;
       const elemWidth = element.element.width * CELL_SIZE;
       const elemHeight = element.element.height * CELL_SIZE;
-      
+
       // Use lighter red colors and rounded corners
       ctx.fillStyle = '#fca5a5';
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 2;
-      
+
       // Draw rounded rectangle for obstacles
       const cornerRadius = 8;
       ctx.beginPath();
       ctx.roundRect(elemX, elemY, elemWidth, elemHeight, cornerRadius);
       ctx.fill();
       ctx.stroke();
-      
+
       // Add text label showing element ID (E{elementId})
       ctx.fillStyle = '#7f1d1d';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      
+
       const centerX = elemX + elemWidth / 2;
       const centerY = elemY + elemHeight / 2;
-      
-      ctx.fillText(
-        `E${element.element.id}`,
-        centerX,
-        centerY
-      );
+
+      ctx.fillText(`E${element.element.id}`, centerX, centerY);
     });
 
     // Draw map spaces (walkable areas)
@@ -546,30 +604,32 @@ export const MapViewPage = () => {
       const spaceY = mapSpace.y * CELL_SIZE;
       const spaceWidth = mapSpace.width * CELL_SIZE;
       const spaceHeight = mapSpace.height * CELL_SIZE;
-      
+
       // Use green colors for walkable spaces
       ctx.fillStyle = '#86efac';
       ctx.strokeStyle = '#16a34a';
       ctx.lineWidth = 2;
-      
+
       // Draw rounded rectangle for spaces
       const cornerRadius = 8;
       ctx.beginPath();
       ctx.roundRect(spaceX, spaceY, spaceWidth, spaceHeight, cornerRadius);
       ctx.fill();
       ctx.stroke();
-      
+
       // Add text label showing space name
       ctx.fillStyle = '#15803d';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      
+
       const centerX = spaceX + spaceWidth / 2;
       const centerY = spaceY + spaceHeight / 2;
-      
+
       ctx.fillText(
-        mapSpace.spaceName.length > 8 ? mapSpace.spaceName.slice(0, 8) + '...' : mapSpace.spaceName,
+        mapSpace.spaceName.length > 8
+          ? mapSpace.spaceName.slice(0, 8) + '...'
+          : mapSpace.spaceName,
         centerX,
         centerY
       );
@@ -583,33 +643,29 @@ export const MapViewPage = () => {
         const elemY = (mapSpace.y + spaceElement.y) * CELL_SIZE;
         const elemWidth = spaceElement.element.width * CELL_SIZE;
         const elemHeight = spaceElement.element.height * CELL_SIZE;
-        
+
         // Use blue colors for space elements to distinguish from map elements
         ctx.fillStyle = '#93c5fd';
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 2;
-        
+
         // Draw rounded rectangle for space elements
         const cornerRadius = 8;
         ctx.beginPath();
         ctx.roundRect(elemX, elemY, elemWidth, elemHeight, cornerRadius);
         ctx.fill();
         ctx.stroke();
-        
+
         // Add text label showing element ID (SE{elementId})
         ctx.fillStyle = '#1e40af';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
+
         const centerX = elemX + elemWidth / 2;
         const centerY = elemY + elemHeight / 2;
-        
-        ctx.fillText(
-          `SE${spaceElement.element.id}`,
-          centerX,
-          centerY
-        );
+
+        ctx.fillText(`SE${spaceElement.element.id}`, centerX, centerY);
       });
     });
 
@@ -618,7 +674,7 @@ export const MapViewPage = () => {
       if (typeof user.x !== 'number' || typeof user.y !== 'number') {
         return;
       }
-      
+
       ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
       ctx.arc(
@@ -629,14 +685,14 @@ export const MapViewPage = () => {
         Math.PI * 2
       );
       ctx.fill();
-      
+
       // Draw user label
       ctx.fillStyle = '#ffffff';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
       ctx.fillText(
-        `User ${String(user.id || 'Unknown').slice(-4)}`, 
-        user.x * CELL_SIZE + CELL_SIZE / 2, 
+        `User ${String(user.id || 'Unknown').slice(-4)}`,
+        user.x * CELL_SIZE + CELL_SIZE / 2,
         user.y * CELL_SIZE + CELL_SIZE / 2 + 25
       );
     });
@@ -652,17 +708,21 @@ export const MapViewPage = () => {
       Math.PI * 2
     );
     ctx.fill();
-    
+
     // Draw current user border
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
     ctx.stroke();
-    
+
     // Draw current user label
     ctx.fillStyle = '#ffffff';
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('You', currentUser.x * CELL_SIZE + CELL_SIZE / 2, currentUser.y * CELL_SIZE + CELL_SIZE / 2 + 25);
+    ctx.fillText(
+      'You',
+      currentUser.x * CELL_SIZE + CELL_SIZE / 2,
+      currentUser.y * CELL_SIZE + CELL_SIZE / 2 + 25
+    );
   };
 
   if (isLoading) {
@@ -697,7 +757,7 @@ export const MapViewPage = () => {
   return (
     <div className="min-h-screen bg-slate-900">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -713,13 +773,17 @@ export const MapViewPage = () => {
             <p className="text-slate-400 text-sm">Created by {map.owner}</p>
             {currentUser && (
               <div className="text-sm text-slate-400 mt-1">
-                <p>Position: ({currentUser.x}, {currentUser.y})</p>
-                <p>User ID: {String(currentUser.userId || 'Unknown').slice(-8)}</p>
+                <p>
+                  Position: ({currentUser.x}, {currentUser.y})
+                </p>
+                <p>
+                  User ID: {String(currentUser.userId || 'Unknown').slice(-8)}
+                </p>
                 <p>Map ID: {mapId}</p>
               </div>
             )}
           </div>
-          
+
           {/* Edit button for map owner only */}
           <div className="flex items-center gap-4">
             {isOwner && (
@@ -732,11 +796,17 @@ export const MapViewPage = () => {
             )}
             <div className="text-white">
               <p className="text-sm text-slate-400">Users online</p>
-              <p className="text-2xl font-bold">{users.size + (currentUser ? 1 : 0)}</p>
+              <p className="text-2xl font-bold">
+                {users.size + (currentUser ? 1 : 0)}
+              </p>
               <div className="text-xs text-slate-500 mt-1">
-                Other Users: {Array.from(users.entries()).map(([id, user]) => 
-                  `${String(id).slice(-4)}:(${user.x},${user.y})`
-                ).join(', ') || 'None'}
+                Other Users:{' '}
+                {Array.from(users.entries())
+                  .map(
+                    ([id, user]) =>
+                      `${String(id).slice(-4)}:(${user.x},${user.y})`
+                  )
+                  .join(', ') || 'None'}
               </div>
             </div>
           </div>
@@ -779,31 +849,38 @@ export const MapViewPage = () => {
               <button
                 onClick={isFullscreen ? exitFullscreen : enterFullscreen}
                 className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
+                title={
+                  isFullscreen ? 'Exit Fullscreen (ESC)' : 'Enter Fullscreen'
+                }
               >
-                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                {isFullscreen ? (
+                  <Minimize className="w-4 h-4" />
+                ) : (
+                  <Maximize className="w-4 h-4" />
+                )}
               </button>
             </div>
             <div className="text-slate-300 text-sm">
-              Arrows to move • Double-click-teleport • Scroll to navigate • ESC exits fullscreen
+              Arrows to move • Double-click-teleport • Scroll to navigate • ESC
+              exits fullscreen
             </div>
           </div>
-          
+
           {/* Canvas Container with Scrollable Area */}
-          <div 
+          <div
             className={`canvas-container ${
-              isFullscreen 
-                ? 'fixed inset-0 z-50 flex bg-slate-900' 
+              isFullscreen
+                ? 'fixed inset-0 z-50 flex bg-slate-900'
                 : 'flex rounded-lg border border-slate-600 bg-slate-900 h-[60vh]'
             }`}
           >
             {/* Game Area (70% width in both normal and fullscreen modes) */}
-            <div 
+            <div
               className="flex-[0.7] overflow-auto"
-              style={{ 
+              style={{
                 scrollBehavior: 'smooth',
                 overflowX: 'auto',
-                overflowY: 'auto'
+                overflowY: 'auto',
               }}
             >
               <div
@@ -815,18 +892,19 @@ export const MapViewPage = () => {
                   height: `${(map.height * CELL_SIZE + 1000) * zoom}px`,
                   position: 'relative',
                   minWidth: '100%',
-                  minHeight: '100%'
+                  minHeight: '100%',
                 }}
               >
-                <div 
+                <div
                   className="absolute inset-0"
                   style={{
-                    background: 'radial-gradient(circle at center, rgba(30, 41, 59, 0.1) 1px, transparent 1px)',
+                    background:
+                      'radial-gradient(circle at center, rgba(30, 41, 59, 0.1) 1px, transparent 1px)',
                     backgroundSize: '20px 20px',
-                    opacity: 0.3
+                    opacity: 0.3,
                   }}
                 />
-                
+
                 <canvas
                   ref={canvasRef}
                   width={map.width * CELL_SIZE}
@@ -840,7 +918,7 @@ export const MapViewPage = () => {
                     top: '500px',
                     border: '2px solid rgba(59, 130, 246, 0.3)',
                     borderRadius: '4px',
-                    cursor: 'default'
+                    cursor: 'default',
                   }}
                 />
               </div>
@@ -852,32 +930,45 @@ export const MapViewPage = () => {
                 {/* Chat Header */}
                 <div className="p-4 border-b border-slate-600">
                   <h3 className="text-white font-semibold">Map Chat</h3>
-                  <p className="text-slate-400 text-sm">{users.size + 1} users online</p>
+                  <p className="text-slate-400 text-sm">
+                    {users.size + 1} users online
+                  </p>
                 </div>
 
                 {/* Chat Messages */}
-                <div ref={chatMessagesRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div
+                  ref={chatMessagesRef}
+                  className="flex-1 overflow-y-auto p-4 space-y-3"
+                >
                   {chatMessages.length === 0 ? (
                     <div className="text-slate-400 text-sm text-center py-8">
                       No messages yet. Say hello! 👋
                     </div>
                   ) : (
                     chatMessages.map((message) => (
-                      <div key={message.id || Math.random()} className="space-y-1">
+                      <div
+                        key={message.id || Math.random()}
+                        className="space-y-1"
+                      >
                         <div className="flex items-center gap-2">
-                          <div 
+                          <div
                             className={`w-2 h-2 rounded-full ${
-                              message.userId === currentUser?.userId ? 'bg-green-500' : 'bg-orange-500'
+                              message.userId === currentUser?.userId
+                                ? 'bg-green-500'
+                                : 'bg-orange-500'
                             }`}
                           />
                           <span className="text-slate-300 text-xs font-medium">
                             {message.displayName}
                           </span>
                           <span className="text-slate-500 text-xs">
-                            {new Date(message.createdAt).toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
+                            {new Date(message.createdAt).toLocaleTimeString(
+                              [],
+                              {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              }
+                            )}
                           </span>
                         </div>
                         <div className="text-white text-sm ml-4 pl-2 border-l border-slate-600">
