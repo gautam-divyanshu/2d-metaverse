@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -11,18 +8,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  admin
-  user
-}
-
 model Avatar {
-  id        Int     @id @default(autoincrement())
-  imageUrl  String  @map("image_url")
-  name      String  @db.VarChar(255)
-  creatorId Int     @map("creator_id")
-  creator   User    @relation("AvatarCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  users     User[]  @relation("UserAvatar")
+  id           Int     @id @default(autoincrement())
+  imageUrl     String  @map("image_url")
+  name         String  @db.VarChar(255)
+  avatarIdle   String? @map("avatar_idle")  // URL for idle animation spritesheet
+  avatarRun    String? @map("avatar_run")   // URL for run animation spritesheet
+  creatorId    Int     @map("creator_id")
+  creator      User    @relation("AvatarCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  users        User[]  @relation("UserAvatar")
 
   @@map("avatars")
 }
@@ -42,46 +36,52 @@ model Element {
 }
 
 model Map {
-  id          Int          @id @default(autoincrement())
-  name        String       @db.VarChar(255)
-  width       Int
-  height      Int
-  creatorId   Int          @map("creator_id")
-  creator     User         @relation("MapCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  mapElements MapElement[]
-  mapSpaces   MapSpace[]
-  messages    Message[]
+  id              Int               @id @default(autoincrement())
+  name            String            @db.VarChar(255)
+  width           Int
+  height          Int
+  bgImg           String?           @map("bg_img")        // Background image URL
+  tilemapUrl      String?           @map("tilemap_url")   // Tiled JSON map file URL
+  creatorId       Int               @map("creator_id")
+  mapElements     MapElement[]
+  mapSpaces       MapSpace[]
+  creator         User              @relation("MapCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  user_map_visits user_map_visits[]
 
   @@map("maps")
 }
 
 model User {
-  id              Int       @id @default(autoincrement())
-  username        String    @unique @db.VarChar(255)
+  id              Int               @id @default(autoincrement())
+  username        String            @unique @db.VarChar(255)
   password        String
-  avatarId        Int?      @map("avatar_id")
-  role            UserRole  @default(user)
-  avatar          Avatar?   @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
-  spaces          Space[]   @relation("SpaceOwner")
-  createdAvatars  Avatar[]  @relation("AvatarCreator")
-  createdElements Element[] @relation("ElementCreator")
-  createdMaps     Map[]     @relation("MapCreator")
+  avatarId        Int?              @map("avatar_id")
+  role            UserRole          @default(user)
+  createdAvatars  Avatar[]          @relation("AvatarCreator")
+  createdElements Element[]         @relation("ElementCreator")
+  createdMaps     Map[]             @relation("MapCreator")
   messages        Message[]
+  spaces          Space[]           @relation("SpaceOwner")
+  user_map_visits user_map_visits[]
+  avatar          Avatar?           @relation("UserAvatar", fields: [avatarId], references: [id])
 
   @@map("users")
 }
 
 model Space {
-  id        Int            @id @default(autoincrement())
-  name      String         @db.VarChar(255)
-  width     Int
-  height    Int
-  thumbnail String?
-  ownerId   Int            @map("owner_id")
-  owner     User           @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  elements  SpaceElement[]
-  mapSpaces MapSpace[]
-  messages  Message[]
+  id         Int            @id @default(autoincrement())
+  name       String         @db.VarChar(255)
+  width      Int
+  height     Int
+  thumbnail  String?
+  bgImg      String?        @map("bg_img")        // Background image URL
+  tilemapUrl String?        @map("tilemap_url")   // Tiled JSON map file URL  
+  ownerId    Int            @map("owner_id")
+  mapSpaces  MapSpace[]
+  messages   Message[]
+  elements   SpaceElement[]
+  owner      User           @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@map("spaces")
 }
@@ -92,8 +92,8 @@ model MapElement {
   elementId Int     @map("element_id")
   x         Int
   y         Int
-  map       Map     @relation(fields: [mapId], references: [id], onDelete: Cascade)
   element   Element @relation(fields: [elementId], references: [id], onDelete: Cascade)
+  map       Map     @relation(fields: [mapId], references: [id], onDelete: Cascade)
 
   @@map("map_elements")
 }
@@ -117,8 +117,8 @@ model SpaceElement {
   elementId Int     @map("element_id")
   x         Int
   y         Int
-  space     Space   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   element   Element @relation(fields: [elementId], references: [id], onDelete: Cascade)
+  space     Space   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
 
   @@map("space_elements")
 }
@@ -126,14 +126,30 @@ model SpaceElement {
 model Message {
   id          Int      @id @default(autoincrement())
   spaceId     Int?     @map("space_id")
-  mapId       Int?     @map("map_id")
   userId      Int      @map("user_id")
   displayName String   @map("display_name") @db.VarChar(255)
   text        String   @db.VarChar(2000)
   createdAt   DateTime @default(now()) @map("created_at")
-  space       Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  mapId       Int?     @map("map_id")
   map         Map?     @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  space       Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("messages")
+}
+
+model user_map_visits {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  map_id     Int
+  visited_at DateTime @default(now())
+  maps       Map      @relation(fields: [map_id], references: [id], onDelete: Cascade)
+  users      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, map_id])
+}
+
+enum UserRole {
+  admin
+  user
 }
