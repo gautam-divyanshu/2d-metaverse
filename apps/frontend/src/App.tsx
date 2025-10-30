@@ -4,7 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LandingPage } from './pages/LandingPage';
 import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
-import { NewDashboardPage } from './pages/NewDashboardPage';
+import { NewDashboardPage } from './pages/DashboardPage';
 import { SpaceViewPage } from './pages/SpaceViewPage';
 import { SpaceEditorPage } from './pages/SpaceEditorPage';
 import { MapViewPage } from './pages/MapViewPage';
