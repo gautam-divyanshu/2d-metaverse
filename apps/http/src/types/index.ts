@@ -74,6 +74,16 @@ export const CreateMapSchema = z.object({
   ),
 });
 
+export const UpdatePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6),
+});
+
+export const UpdateAvatarInfoSchema = z.object({
+  avatarId: z.string().optional(),
+  avatarName: z.string().min(1).max(255).optional(),
+});
+
 declare global {
   namespace Express {
     export interface Request {

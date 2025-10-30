@@ -19,6 +19,11 @@ export const Header: React.FC = () => {
     setShowDropdown(false);
   };
 
+  const handleProfile = () => {
+    navigate('/profile');
+    setShowDropdown(false);
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -113,6 +118,12 @@ export const Header: React.FC = () => {
                       <div className="text-blue-400 text-xs">Admin</div>
                     )}
                   </div>
+                  <button
+                    onClick={handleProfile}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                  >
+                    Profile
+                  </button>
                   {isAdmin && (
                     <button
                       onClick={handleAdminPanel}

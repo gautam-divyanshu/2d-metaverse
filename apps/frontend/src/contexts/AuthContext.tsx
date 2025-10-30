@@ -24,6 +24,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track activity when authenticated
+  useEffect(() => {
+    const trackActivity = async () => {
+      if (!token) return;
+
+      // Check if we've already tracked today
+      const lastTracked = localStorage.getItem('lastActivityTracked');
+      const today = new Date().toDateString();
+
+      if (lastTracked === today) return;
+
+      try {
+        await fetch('http://localhost:3000/api/v1/user/activity', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        localStorage.setItem('lastActivityTracked', today);
+      } catch (error) {
+        console.error('Failed to track activity:', error);
+      }
+    };
+
+    if (token) {
+      trackActivity();
+    }
+  }, [token]);
+
   useEffect(() => {
     // Load from localStorage on mount
     const storedToken = localStorage.getItem('token');

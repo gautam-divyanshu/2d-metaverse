@@ -98,6 +98,32 @@ router.post("/signin", async (req, res) => {
       return;
     }
 
+    // Update last login timestamp
+    await client.user.update({
+      where: { id: user.id },
+      data: { 
+        lastLoginAt: new Date()
+      },
+    });
+
+    // Record daily activity (upsert to prevent duplicate entries per day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    await client.activityLog.upsert({
+      where: {
+        userId_date: {
+          userId: user.id,
+          date: today
+        }
+      },
+      update: {},
+      create: {
+        userId: user.id,
+        date: today
+      }
+    });
+
     const token = jwt.sign(
       {
         userId: user.id,
