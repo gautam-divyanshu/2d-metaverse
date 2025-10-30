@@ -1,23 +1,27 @@
 import { WebSocket } from 'ws';
 import { RoomManager } from './RoomManager';
 import { OutgoingMessage } from './types';
-import client from '@repo/db/client';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { JWT_PASSWORD } from './config';
+import client from '@repo/db/client';
 
 function getRandomString(length: number) {
-  const characters =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuv1234567890!@#$%^&*';
+  let randomString = '';
   for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * characters.length));
+    randomString += chars[Math.floor(Math.random() * chars.length)];
   }
-  return result;
+
+  return randomString;
 }
 
 export class User {
   public id: string;
   public userId?: string;
+  public username?: string;
+  public avatar?: { avatarIdle: string; avatarRun: string };
+  private space?: { spaceId: string; height: number; width: number };
   private spaceId?: string;
   private mapId?: string;
   private roomType?: 'space' | 'map';
@@ -27,391 +31,278 @@ export class User {
 
   constructor(ws: WebSocket) {
     this.id = getRandomString(10);
+    this.ws = ws;
     this.x = 0;
     this.y = 0;
-    this.ws = ws;
     this.initHandlers();
   }
 
   initHandlers() {
-    this.ws.on('message', async (data) => {
-      console.log(data);
-      const parsedData = JSON.parse(data.toString());
-      console.log(parsedData);
-      console.log('parsedData');
-      switch (parsedData.type) {
-        case 'join':
-          console.log('join received');
-          const spaceId = parsedData.payload.spaceId;
-          const mapId = parsedData.payload.mapId;
-          const token = parsedData.payload.token;
+    this.ws.addEventListener('message', async (event) => {
+      const data = event.data;
+      const parseData = JSON.parse(data.toString());
 
-          // Validate required fields - either spaceId or mapId but not both
-          if ((!spaceId && !mapId) || (spaceId && mapId) || !token) {
-            console.log(
-              'Missing or conflicting spaceId/mapId or token in join request'
-            );
-            this.ws.close();
-            return;
-          }
+      if (parseData.class === 'game') {
+        await this.handleGameMessage(parseData);
+      } else if (parseData.class === 'chat') {
+        await this.handleChatMessage(parseData);
+      }
+    });
+  }
 
-          let userId;
-          try {
-            userId = (jwt.verify(token, JWT_PASSWORD) as JwtPayload).userId;
-          } catch (error) {
-            console.log(
-              'Invalid token:',
-              error instanceof Error ? error.message : 'Unknown error'
-            );
-            this.ws.close();
-            return;
-          }
-
+  private async handleGameMessage(parseData: any) {
+    switch (parseData.type) {
+      case 'join':
+        try {
+          const token = parseData.payload.token;
+          const spaceId = parseData.payload.spaceId;
+          //verify token:
+          const userId = (jwt.verify(token, JWT_PASSWORD) as JwtPayload).userId;
           if (!userId) {
-            console.log('No userId found in token');
             this.ws.close();
-            return;
+            throw new Error('invalid jwt token');
           }
-
           this.userId = userId;
 
-          // Handle space joining
-          if (spaceId) {
-            const space = await client.space.findFirst({
+          //get username and avatarImg from database:
+          const user = await client.user.findUnique({
+            where: {
+              id: parseInt(userId),
+            },
+          });
+
+          this.username = user?.username;
+
+          if (user?.avatarId) {
+            const avatar = await client.avatar.findUnique({
               where: {
-                id: spaceId,
+                id: user.avatarId,
               },
             });
-
-            if (!space) {
-              this.ws.close();
-              return;
-            }
-
-            this.spaceId = spaceId;
-            this.roomType = 'space';
-            RoomManager.getInstance().addUser(`space_${spaceId}`, this);
-
-            // Spawn at a safe position within the space bounds
-            this.x = Math.floor(Math.random() * space.width);
-            this.y = Math.floor(Math.random() * space.height);
-
-            // Fetch recent messages (last 50) for this space
-            const recentMessages = await client.message.findMany({
-              where: {
-                spaceId: spaceId,
-              },
-              orderBy: {
-                createdAt: 'desc',
-              },
-              take: 50,
-            });
-
-            // Reverse to show oldest first
-            const messages = recentMessages.reverse().map((msg) => ({
-              id: msg.id,
-              userId: msg.userId.toString(),
-              displayName: msg.displayName,
-              text: msg.text,
-              createdAt: msg.createdAt.toISOString(),
-            }));
-
-            this.send({
-              type: 'space-joined',
-              payload: {
-                spawn: {
-                  x: this.x,
-                  y: this.y,
-                },
-                userId: this.userId,
-                users:
-                  RoomManager.getInstance()
-                    .rooms.get(`space_${spaceId}`)
-                    ?.filter((x) => x.id !== this.id)
-                    ?.map((u) => ({
-                      id: u.id,
-                      userId: u.userId,
-                      x: u.x,
-                      y: u.y,
-                    })) ?? [],
-                messages: messages,
-              },
-            });
-
-            RoomManager.getInstance().broadcast(
-              {
-                type: 'user-joined',
-                payload: {
-                  userId: this.userId,
-                  x: this.x,
-                  y: this.y,
-                },
-              },
-              this,
-              `space_${this.spaceId}`
-            );
+            if (!avatar) throw new Error('avatar not found!');
+            this.avatar = {
+              avatarIdle:
+                avatar.avatarIdle || '/assets/Adam_idle_anim_16x16.png',
+              avatarRun: avatar.avatarRun || '/assets/Adam_run_16x16.png',
+            };
+          } else {
+            // Default avatar
+            this.avatar = {
+              avatarIdle: '/assets/Adam_idle_anim_16x16.png',
+              avatarRun: '/assets/Adam_run_16x16.png',
+            };
           }
 
-          // Handle map joining
-          if (mapId) {
-            const map = await client.map.findFirst({
-              where: {
-                id: mapId,
+          //verify spaceId:
+          const space = await client.space.findUnique({
+            where: {
+              id: parseInt(spaceId),
+            },
+            include: {
+              elements: {
+                include: {
+                  element: true,
+                },
               },
-            });
+            },
+          });
 
-            if (!map) {
-              this.ws.close();
-              return;
-            }
+          if (!space) {
+            this.ws.close();
+            throw new Error('Space not found');
+          }
 
-            this.mapId = mapId;
-            this.roomType = 'map';
-            RoomManager.getInstance().addUser(`map_${mapId}`, this);
+          this.space = {
+            spaceId: spaceId,
+            height: space.height,
+            width: space.width,
+          };
 
-            // Track map visit for the user
-            if (this.userId) {
-              try {
-                await client.userMapVisit.upsert({
-                  where: {
-                    userId_mapId: {
-                      userId: parseInt(this.userId),
-                      mapId: mapId,
-                    },
-                  },
-                  update: {
-                    visitedAt: new Date(),
-                  },
-                  create: {
-                    userId: parseInt(this.userId),
-                    mapId: mapId,
-                  },
-                });
-              } catch (error) {
-                console.error('Failed to track map visit:', error);
+          //check if user has already joined this space:
+          RoomManager.getInstance()
+            .rooms.get(spaceId)
+            ?.forEach((u) => {
+              if (u.userId === this.userId) {
+                console.log('Same User found', u.username);
+                throw new Error('user has already joined this space');
               }
-            }
-
-            // Spawn at a safe position within the map bounds
-            this.x = Math.floor(Math.random() * map.width);
-            this.y = Math.floor(Math.random() * map.height);
-
-            // Fetch recent messages (last 50) for this map
-            const recentMessages = await client.message.findMany({
-              where: {
-                mapId: mapId,
-              },
-              orderBy: {
-                createdAt: 'desc',
-              },
-              take: 50,
             });
 
-            // Reverse to show oldest first
-            const messages = recentMessages.reverse().map((msg) => ({
-              id: msg.id,
-              userId: msg.userId.toString(),
-              displayName: msg.displayName,
-              text: msg.text,
-              createdAt: msg.createdAt.toISOString(),
-            }));
+          //set spawn coords:
+          RoomManager.getInstance().addUser(spaceId, this);
+          this.x = Math.floor(Math.random() * space.width);
+          this.y = Math.floor(Math.random() * space.height);
 
-            this.send({
-              type: 'map-joined',
-              payload: {
-                spawn: {
-                  x: this.x,
-                  y: this.y,
-                },
-                userId: this.userId,
-                users:
-                  RoomManager.getInstance()
-                    .rooms.get(`map_${mapId}`)
-                    ?.filter((x) => x.id !== this.id)
-                    ?.map((u) => ({
-                      id: u.id,
-                      userId: u.userId,
-                      x: u.x,
-                      y: u.y,
-                    })) ?? [],
-                messages: messages,
+          // Create compatible space object with spaceElements
+          const spaceWithElements = {
+            ...space,
+            spaceElements: space.elements.map((e: any) => ({
+              x: e.x,
+              y: e.y,
+              element: {
+                elementImg: e.element.imageUrl,
+                width: e.element.width,
+                height: e.element.height,
+                static: e.element.isStatic,
               },
-            });
+            })),
+          };
 
-            RoomManager.getInstance().broadcast(
-              {
-                type: 'user-joined',
-                payload: {
-                  userId: this.userId,
-                  x: this.x,
-                  y: this.y,
-                },
-              },
-              this,
-              `map_${this.mapId}`
-            );
-          }
-          break;
-        case 'move':
-          const moveX = parsedData.payload.x;
-          const moveY = parsedData.payload.y;
-          const isTeleport = parsedData.payload.teleport || false;
-          const xDisplacement = Math.abs(this.x - moveX);
-          const yDisplacement = Math.abs(this.y - moveY);
-
-          if (isTeleport) {
-            console.log(
-              `Teleport request: ${this.userId} from (${this.x}, ${this.y}) to (${moveX}, ${moveY})`
-            );
-          }
-
-          // Validate that user is in either a space or map
-          if (!this.spaceId && !this.mapId) {
-            return;
-          }
-
-          const isValidMove = await this.validateMovement(
-            moveX,
-            moveY,
-            xDisplacement,
-            yDisplacement,
-            isTeleport
-          );
-
-          if (isValidMove) {
-            // Update position immediately
-            this.x = moveX;
-            this.y = moveY;
-
-            // Determine the room key for broadcasting
-            const roomKey = this.spaceId
-              ? `space_${this.spaceId}`
-              : `map_${this.mapId}`;
-
-            // Broadcast to other users FIRST for speed
-            RoomManager.getInstance().broadcast(
-              {
-                type: 'movement',
-                payload: {
-                  userId: this.userId,
-                  x: this.x,
-                  y: this.y,
-                },
-              },
-              this,
-              roomKey
-            );
-
-            // Send acknowledgment to the moving user
-            this.send({
-              type: 'movement-accepted',
-              payload: {
+          //sendspace joined message to user:
+          this.send({
+            class: 'game',
+            type: 'space-joined',
+            payload: {
+              userId: this.userId,
+              spawn: {
                 x: this.x,
                 y: this.y,
               },
-            });
-            return;
-          }
+              username: this.username,
+              avatar: this.avatar,
+              users: RoomManager.getInstance()
+                .rooms.get(spaceId)
+                ?.filter((x) => x.id !== this.id),
+              space: spaceWithElements,
+            },
+          });
 
-          // Movement rejected - send current position
-          this.send({
-            type: 'movement-rejected',
-            payload: {
+          //broadcast to other users:
+          RoomManager.getInstance().broadcast(
+            {
+              type: 'user-joined',
+              payload: {
+                userId: this.userId,
+                coords: {
+                  x: this.x,
+                  y: this.y,
+                },
+                username: this.username,
+                avatar: this.avatar,
+              },
+            },
+            this,
+            this.space!.spaceId
+          );
+        } catch (error) {
+          console.log(error);
+        }
+
+        break;
+
+      case 'move':
+        console.log('Move received:', parseData.payload);
+        const moveX = parseInt(parseData.payload.coords.x);
+        const moveY = parseInt(parseData.payload.coords.y);
+        const direction = parseData.payload.direction;
+
+        console.log(
+          `User ${this.userId} attempting to move from (${this.x}, ${this.y}) to (${moveX}, ${moveY})`
+        );
+
+        const xDisplacement = Math.abs(this.x - moveX);
+        const yDisplacement = Math.abs(this.y - moveY);
+
+        const validMove =
+          (xDisplacement <= 1 && yDisplacement == 0) ||
+          (xDisplacement == 0 && yDisplacement <= 1);
+
+        //check if user moved two blocks at once:
+        if (validMove) {
+          console.log('Movement accepted, broadcasting to other users');
+          this.x = moveX;
+          this.y = moveY;
+          RoomManager.getInstance().broadcast(
+            {
+              class: 'game',
+              type: 'user-moved',
+              payload: {
+                userId: this.userId,
+                coords: {
+                  x: this.x,
+                  y: this.y,
+                },
+                direction: direction,
+              },
+            },
+            this,
+            this.space!.spaceId
+          );
+
+          break;
+        }
+
+        console.log('Movement rejected:', {
+          validMove,
+          xDisplacement,
+          yDisplacement,
+        });
+        this.send({
+          class: 'game',
+          type: 'movement-rejected',
+          payload: {
+            coords: {
               x: this.x,
               y: this.y,
             },
-          });
-          break;
+          },
+        });
 
-        case 'chat':
-          // Chat message broadcasting and persistence
-          try {
-            const text = String(parsedData.payload?.text || '').slice(0, 2000);
-            const displayName =
-              parsedData.payload?.displayName || String(this.userId || this.id);
+        break;
+    }
+  }
 
-            if ((!this.spaceId && !this.mapId) || !this.userId || !text.trim())
-              return;
+  private async handleChatMessage(parseData: any) {
+    if (!this.userId || !this.space) return;
 
-            const roomKey = this.spaceId
-              ? `space_${this.spaceId}`
-              : `map_${this.mapId}`;
+    switch (parseData.type) {
+      case 'send-message':
+        try {
+          const messageText = parseData.payload.text;
+          const spaceId = parseData.payload.spaceId;
 
-            if (this.spaceId) {
-              // For spaces: persist message to database
-              const savedMessage = await client.message.create({
-                data: {
-                  spaceId: parseInt(this.spaceId),
-                  userId: parseInt(this.userId),
-                  displayName,
-                  text: text.trim(),
-                },
-              });
-
-              const chatPayload = {
-                id: savedMessage.id,
-                userId: this.userId,
-                displayName,
-                text: text.trim(),
-                createdAt: savedMessage.createdAt.toISOString(),
-              };
-
-              // Send to sender immediately
-              this.send({
-                type: 'chat',
-                payload: chatPayload,
-              });
-
-              // Broadcast to other users in the room
-              RoomManager.getInstance().broadcast(
-                {
-                  type: 'chat',
-                  payload: chatPayload,
-                },
-                this,
-                roomKey
-              );
-            } else if (this.mapId) {
-              // For maps: persist message to database (same as spaces)
-              const savedMessage = await client.message.create({
-                data: {
-                  mapId: parseInt(this.mapId),
-                  userId: parseInt(this.userId),
-                  displayName,
-                  text: text.trim(),
-                },
-              });
-
-              const chatPayload = {
-                id: savedMessage.id,
-                userId: this.userId,
-                displayName,
-                text: text.trim(),
-                createdAt: savedMessage.createdAt.toISOString(),
-              };
-
-              // Send to sender immediately
-              this.send({
-                type: 'chat',
-                payload: chatPayload,
-              });
-
-              // Broadcast to other users in the room
-              RoomManager.getInstance().broadcast(
-                {
-                  type: 'chat',
-                  payload: chatPayload,
-                },
-                this,
-                roomKey
-              );
-            }
-          } catch (err) {
-            console.error('Error handling chat message:', err);
+          if (spaceId !== parseInt(this.space.spaceId)) {
+            console.error('Space ID mismatch');
+            return;
           }
-          break;
-      }
-    });
+
+          // Save message to database
+          const message = await client.message.create({
+            data: {
+              spaceId: spaceId,
+              userId: parseInt(this.userId),
+              displayName: this.username || 'Unknown User',
+              text: messageText,
+            },
+          });
+
+          // Broadcast to all users in the space including sender
+          const chatMessage = {
+            class: 'game',
+            type: 'chat-message',
+            payload: {
+              id: message.id,
+              userId: message.userId,
+              displayName: message.displayName,
+              text: message.text,
+              createdAt: message.createdAt.toISOString(),
+            },
+          };
+
+          // Send to all other users
+          RoomManager.getInstance().broadcast(
+            chatMessage,
+            this,
+            this.space.spaceId
+          );
+
+          // Also send to sender
+          this.send(chatMessage);
+        } catch (error) {
+          console.error('Error sending chat message:', error);
+        }
+        break;
+    }
   }
 
   async validateMovement(
@@ -568,7 +459,7 @@ export class User {
         this,
         roomKey
       );
-      RoomManager.getInstance().removeUser(this, roomKey);
+      RoomManager.getInstance().removeUser(roomKey, this);
     }
   }
 

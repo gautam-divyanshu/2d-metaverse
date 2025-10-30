@@ -2,16 +2,14 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
 import {
   Globe,
   Users,
   Plus,
-  LogOut,
-  Search,
   Palette,
   Eye,
   Edit3,
-  ArrowLeft,
   MoreHorizontal,
 } from 'lucide-react';
 
@@ -37,7 +35,7 @@ interface AdminSpace {
 }
 
 export const AdminPanelPage = () => {
-  const { token, user, logout } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'elements' | 'avatars' | 'spaces'>(
     'elements'
@@ -285,80 +283,29 @@ export const AdminPanelPage = () => {
       {/* Main Content Area */}
       <div className="flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left Section - Back Button, Title and User Profile */}
-            <div className="flex items-center gap-6">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-
-              <div>
-                <h1 className="text-xl font-bold text-white">Admin Panel</h1>
-                <p className="text-sm text-slate-400">
-                  {activeTab === 'elements' &&
-                    'Manage space elements and assets'}
-                  {activeTab === 'avatars' && 'Create and manage user avatars'}
-                  {activeTab === 'spaces' &&
-                    'Oversee all spaces in the metaverse'}
-                </p>
-              </div>
-
-              {/* User Profile */}
-              <div className="flex items-center gap-3 px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                  {user?.username?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-white">
-                    {user?.username}
-                  </p>
-                  <p className="text-xs text-slate-400">Administrator</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Section - Search, Actions and Sign Out */}
-            <div className="flex items-center gap-3">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder={`Search ${activeTab}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-64"
-                />
-              </div>
-
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Create{' '}
-                {activeTab === 'elements'
-                  ? 'Element'
-                  : activeTab === 'avatars'
-                    ? 'Avatar'
-                    : 'Space'}
-              </button>
-
-              {/* Sign Out Button */}
-              <button
-                onClick={() => logout()}
-                className="p-2 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-900/20 transition-colors"
-                title="Sign Out"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </header>
+        <PageHeader
+          title="Admin Panel"
+          subtitle={
+            activeTab === 'elements'
+              ? 'Manage space elements and assets'
+              : activeTab === 'avatars'
+                ? 'Create and manage user avatars'
+                : 'Oversee all spaces in the metaverse'
+          }
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder={`Search ${activeTab}...`}
+          showBackButton={true}
+          showCreateButton={true}
+          createButtonText={`Create ${
+            activeTab === 'elements'
+              ? 'Element'
+              : activeTab === 'avatars'
+                ? 'Avatar'
+                : 'Space'
+          }`}
+          onCreateClick={() => setShowCreateModal(true)}
+        />
 
         {/* Main Content */}
         <main className="flex-1 p-6 overflow-auto">
@@ -494,15 +441,15 @@ export const AdminPanelPage = () => {
                               .includes(searchQuery.toLowerCase())
                         );
                         return filteredElements.length > 0 ? (
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-7">
                             {filteredElements.map((element) => (
                               <motion.div
                                 key={element.id}
                                 whileHover={{ scale: 1.02 }}
-                                className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 hover:border-slate-500 transition-colors"
+                                className="bg-slate-700/50 rounded-lg p-3 border border-slate-600 hover:border-slate-500 transition-colors"
                               >
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-white font-medium">
+                                  <span className="text-white font-normal text-sm">
                                     Element #{element.id}
                                   </span>
                                   <span
@@ -515,7 +462,7 @@ export const AdminPanelPage = () => {
                                     {element.isStatic ? 'Static' : 'Walkable'}
                                   </span>
                                 </div>
-                                <p className="text-slate-300 text-sm mb-2">
+                                <p className="text-slate-300 text-xs mb-2">
                                   Size: {element.width}x{element.height}
                                 </p>
                                 {element.imageUrl && (
@@ -535,11 +482,9 @@ export const AdminPanelPage = () => {
                                 <div className="flex gap-2">
                                   <button className="flex-1 flex items-center justify-center gap-1 py-2 px-3 bg-slate-600 text-slate-300 rounded-lg hover:bg-slate-500 transition-colors text-sm">
                                     <Eye className="w-4 h-4" />
-                                    View
                                   </button>
                                   <button className="flex-1 flex items-center justify-center gap-1 py-2 px-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
                                     <Edit3 className="w-4 h-4" />
-                                    Edit
                                   </button>
                                 </div>
                               </motion.div>
@@ -577,12 +522,12 @@ export const AdminPanelPage = () => {
                             .includes(searchQuery.toLowerCase())
                         );
                         return filteredAvatars.length > 0 ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-7">
                             {filteredAvatars.map((avatar) => (
                               <motion.div
                                 key={avatar.id}
                                 whileHover={{ scale: 1.02 }}
-                                className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 hover:border-slate-500 transition-colors text-center"
+                                className="bg-slate-700/50 rounded-lg p-3 border border-slate-600 hover:border-slate-500 transition-colors text-center"
                               >
                                 <div className="aspect-square bg-slate-600 rounded-lg mb-3 overflow-hidden">
                                   <img
@@ -596,20 +541,18 @@ export const AdminPanelPage = () => {
                                     }}
                                   />
                                 </div>
-                                <h4 className="text-white font-medium mb-1">
+                                <h4 className="text-white font-medium text-sm mb-0.5 truncate">
                                   {avatar.name}
                                 </h4>
-                                <p className="text-slate-400 text-sm mb-3">
+                                <p className="text-slate-400 text-xs mb-2">
                                   ID: {avatar.id}
                                 </p>
-                                <div className="flex gap-2">
-                                  <button className="flex-1 flex items-center justify-center gap-1 py-2 px-3 bg-slate-600 text-slate-300 rounded-lg hover:bg-slate-500 transition-colors text-sm">
+                                <div className="flex gap-1">
+                                  <button className="flex-1 flex items-center justify-center gap-1 py-1 px-2 bg-slate-600 text-slate-300 rounded-md hover:bg-slate-500 transition-colors text-xs">
                                     <Eye className="w-4 h-4" />
-                                    View
                                   </button>
-                                  <button className="flex-1 flex items-center justify-center gap-1 py-2 px-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                  <button className="flex-1 flex items-center justify-center gap-1 py-1 px-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs">
                                     <Edit3 className="w-4 h-4" />
-                                    Edit
                                   </button>
                                 </div>
                               </motion.div>
@@ -706,25 +649,28 @@ export const AdminPanelPage = () => {
                                         className="dropdown-menu absolute right-0 bottom-full mb-1 bg-slate-700 rounded-lg border border-slate-600 shadow-lg z-30 min-w-[140px]"
                                       >
                                         <button
-                                          onClick={() =>
-                                            handleEditSpace(space.id)
-                                          }
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditSpace(space.id);
+                                          }}
                                           className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-600 transition-colors rounded-t-lg"
                                         >
                                           Edit
                                         </button>
                                         <button
-                                          onClick={() =>
-                                            handleShareSpace(space)
-                                          }
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleShareSpace(space);
+                                          }}
                                           className="w-full px-3 py-2 text-left text-sm text-white hover:bg-slate-600 transition-colors"
                                         >
                                           Share
                                         </button>
                                         <button
-                                          onClick={() =>
-                                            handleDeleteSpace(space.id)
-                                          }
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteSpace(space.id);
+                                          }}
                                           className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors rounded-b-lg"
                                         >
                                           Delete

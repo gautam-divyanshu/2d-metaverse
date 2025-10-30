@@ -84,29 +84,71 @@ router.post('/signup', async (req, res) => {
 });
 
 router.post('/signin', async (req, res) => {
+  console.log('Signin request received');
+  console.log('Request body:', req.body);
+
   const parsedData = SigninSchema.safeParse(req.body);
+  console.log('Parsed data success:', parsedData.success);
   if (!parsedData.success) {
+    console.log('Validation errors:', parsedData.error);
     res.status(403).json({ message: 'Validation failed' });
     return;
   }
 
+  console.log('Validated data:', parsedData.data);
+
   try {
+    console.log('Looking up user:', parsedData.data.username);
     const user = await client.user.findUnique({
       where: {
         username: parsedData.data.username,
       },
     });
 
+    console.log('User found:', !!user);
     if (!user) {
+      console.log('User not found');
       res.status(403).json({ message: 'User not found' });
       return;
     }
+
+    console.log('Comparing password...');
     const isValid = await compare(parsedData.data.password, user.password);
+    console.log('Password valid:', isValid);
 
     if (!isValid) {
+      console.log('Invalid password');
       res.status(403).json({ message: 'Invalid password' });
       return;
     }
+
+    console.log('Signin successful for user:', user.username);
+
+    // Update last login timestamp
+    await client.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: new Date(),
+      },
+    });
+
+    // Record daily activity (upsert to prevent duplicate entries per day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    await client.activityLog.upsert({
+      where: {
+        userId_date: {
+          userId: user.id,
+          date: today,
+        },
+      },
+      update: {},
+      create: {
+        userId: user.id,
+        date: today,
+      },
+    });
 
     const token = jwt.sign(
       {

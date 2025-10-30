@@ -3,18 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { MapTemplateSelector } from '../components/MapTemplateSelector';
+import { PageHeader } from '../components/PageHeader';
 import {
-  Plus,
   MoreHorizontal,
-  Key,
   MapPin,
   Clock,
-  Search,
-  LogOut,
   Grid3X3,
   Crown,
   Globe,
-  Shield,
 } from 'lucide-react';
 
 interface UserMap {
@@ -28,7 +24,7 @@ interface UserMap {
 }
 
 export const NewDashboardPage = () => {
-  const { token, isAuthenticated, user, logout } = useAuth();
+  const { token, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [recentMaps, setRecentMaps] = useState<UserMap[]>([]);
   const [myMaps, setMyMaps] = useState<UserMap[]>([]);
@@ -58,11 +54,14 @@ export const NewDashboardPage = () => {
     if (isAuthenticated) {
       const loadData = async () => {
         try {
-          await Promise.all([
-            fetchRecentMaps(),
-            fetchMyMaps(),
-            fetchTemplateMaps(),
-          ]);
+          const promises = [fetchRecentMaps(), fetchMyMaps()];
+
+          // Only fetch templates for admin users
+          if (user?.role === 'admin') {
+            promises.push(fetchTemplateMaps());
+          }
+
+          await Promise.all(promises);
         } finally {
           setIsLoading(false);
         }
@@ -402,85 +401,19 @@ export const NewDashboardPage = () => {
     <div className="min-h-screen bg-slate-900 text-white">
       <div className="flex flex-col min-h-screen">
         {/* Header */}
-        <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left Section - Logo/Title and User Profile */}
-            <div className="flex items-center gap-6">
-              <div>
-                <h1 className="text-xl font-bold text-white">2D Metaverse</h1>
-                <p className="text-sm text-slate-400">
-                  Welcome back, {user?.username}!
-                </p>
-              </div>
-
-              {/* User Profile */}
-              <div className="flex items-center gap-3 px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                  {user?.username?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-white">
-                    {user?.username}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {user?.role === 'admin' ? 'Administrator' : 'User'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Section - Search, Actions and Sign Out */}
-            <div className="flex items-center gap-3">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search maps..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-64"
-                />
-              </div>
-
-              <button
-                onClick={() => setShowEnterCodeModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
-              >
-                <Key className="w-4 h-4" />
-                Join with Code
-              </button>
-
-              <button
-                onClick={handleCreateMapClick}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Create Map
-              </button>
-
-              {/* Admin Panel Access (if admin) */}
-              {user?.role === 'admin' && (
-                <button
-                  onClick={() => navigate('/admin')}
-                  className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors"
-                  title="Admin Panel"
-                >
-                  <Shield className="w-5 h-5" />
-                </button>
-              )}
-
-              {/* Sign Out Button */}
-              <button
-                onClick={() => logout()}
-                className="p-2 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-900/20 transition-colors"
-                title="Sign Out"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </header>
+        <PageHeader
+          title="2D Metaverse"
+          subtitle={`Welcome back, ${user?.username}!`}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search maps..."
+          showJoinWithCode={true}
+          onJoinWithCode={() => setShowEnterCodeModal(true)}
+          showCreateButton={true}
+          createButtonText="Create Map"
+          onCreateClick={handleCreateMapClick}
+          showAdminPanelButton={true}
+        />
 
         {/* Main Content */}
         <main className="flex-1 p-6 overflow-auto">
@@ -512,31 +445,33 @@ export const NewDashboardPage = () => {
                   </div>
                 </div>
               </motion.div>
-              <motion.div
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setActiveSection('templates')}
-                className={`cursor-pointer bg-slate-800 rounded-xl p-6 border-2 transition-all duration-300 ${
-                  activeSection === 'templates'
-                    ? 'border-green-500 shadow-lg shadow-green-500/20'
-                    : 'border-slate-700 hover:border-slate-600'
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-green-400" />
+              {user?.role === 'admin' && (
+                <motion.div
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveSection('templates')}
+                  className={`cursor-pointer bg-slate-800 rounded-xl p-6 border-2 transition-all duration-300 ${
+                    activeSection === 'templates'
+                      ? 'border-green-500 shadow-lg shadow-green-500/20'
+                      : 'border-slate-700 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-green-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-3xl font-bold text-white">
+                        {templateMaps.length}
+                      </p>
+                      <p className="text-slate-400 font-medium">Templates</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Available map templates
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-3xl font-bold text-white">
-                      {templateMaps.length}
-                    </p>
-                    <p className="text-slate-400 font-medium">Templates</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Available map templates
-                    </p>
-                  </div>
-                </div>
-              </motion.div>{' '}
+                </motion.div>
+              )}
               <motion.div
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
@@ -571,7 +506,7 @@ export const NewDashboardPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {(activeSection === 'templates' ||
+              {((activeSection === 'templates' && user?.role === 'admin') ||
                 activeSection === 'my-maps' ||
                 activeSection === 'explore') && (
                 <div>

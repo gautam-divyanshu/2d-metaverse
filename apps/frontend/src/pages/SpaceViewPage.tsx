@@ -1,23 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Phaser from 'phaser';
+import { GameScene } from '../game/GameScene.ts';
 import { useAuth } from '../contexts/AuthContext';
 import { Header } from '../components/Header';
-import { ArrowLeft, ZoomIn, ZoomOut, RotateCcw, Maximize, Minimize } from 'lucide-react';
-// import { createPhaserGame } from '../components/PhaserGame';
-
-interface SpaceElement {
-  id: number;
-  elementId: number;
-  x: number;
-  y: number;
-  element: {
-    id: number;
-    imageUrl: string;
-    width: number;
-    height: number;
-    isStatic: boolean;
-  };
-}
+import { Chat } from '../components/Chat';
+import { ArrowLeft, Maximize, Minimize } from 'lucide-react';
 
 interface SpaceData {
   id: number;
@@ -25,96 +13,88 @@ interface SpaceData {
   width: number;
   height: number;
   ownerId: number;
-  elements: SpaceElement[];
 }
-
-interface User {
-  id: string;
-  x: number;
-  y: number;
-}
-
-interface CurrentUser {
-  x: number;
-  y: number;
-  userId: string;
-}
-
-interface ChatMessage {
-  id?: number;
-  userId: string;
-  displayName: string;
-  text: string;
-  createdAt: string;
-}
-
-const CELL_SIZE = 32; // pixels per grid cell
 
 export const SpaceViewPage = () => {
   const { spaceId } = useParams<{ spaceId: string }>();
   const { token, user } = useAuth();
   const navigate = useNavigate();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const chatMessagesRef = useRef<HTMLDivElement>(null);
-  
+  const gameInstanceRef = useRef<Phaser.Game | null>(null);
+
   const [space, setSpace] = useState<SpaceData | null>(null);
-  const [users, setUsers] = useState<Map<string, User>>(new Map());
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
-  const [zoom, setZoom] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState<string>('');
+
+  // User tracking state
+  const [onlineUsers, setOnlineUsers] = useState<
+    Map<string, { x: number; y: number; username: string }>
+  >(new Map());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Chat state
+  const [messages, setMessages] = useState<
+    Array<{
+      id: number;
+      userId: number;
+      displayName: string;
+      text: string;
+      createdAt: string;
+    }>
+  >([]);
 
   // Check if user is the owner of this space
   const isOwner = space && user && space.ownerId === parseInt(user.id);
 
+  // Fetch space data
   useEffect(() => {
-    fetchSpaceData();
-    return () => {
-      // Clean up WebSocket connection
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
+    if (spaceId && token) {
+      fetchSpaceData();
+    }
+  }, [spaceId, token]);
+
+  // Fetch chat messages
+  const fetchChatMessages = async () => {
+    if (!spaceId || !token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/v1/space/${spaceId}/messages`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+      } else {
+        console.error('Failed to fetch messages');
       }
-      // Clear user state
-      setUsers(new Map());
-      setCurrentUser(null);
-    };
-  }, [spaceId]);
-
-  useEffect(() => {
-    if (space) {
-      connectWebSocket();
+    } catch (error) {
+      console.error('Error fetching messages:', error);
     }
-  }, [space]);
-
-  useEffect(() => {
-    if (space && currentUser) {
-      // Use requestAnimationFrame for smoother rendering
-      const animationId = requestAnimationFrame(() => {
-        drawCanvas();
-      });
-      
-      return () => cancelAnimationFrame(animationId);
-    }
-  }, [space, currentUser, users]);
+  };
 
   const fetchSpaceData = async () => {
+    if (!spaceId || !token) return;
+
     try {
       console.log('Fetching space data for spaceId:', spaceId);
-      console.log('Token:', token);
-      
-      const response = await fetch(`http://localhost:3000/api/v1/space/${spaceId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        `http://localhost:3000/api/v1/space/${spaceId}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -122,306 +102,42 @@ export const SpaceViewPage = () => {
         setSpace(data);
         setIsLoading(false);
       } else {
-        const errorData = await response.text();
-        console.log('Error response:', errorData);
         setError('Failed to load space');
         setIsLoading(false);
       }
-    } catch (err) {
-      console.error('Fetch error:', err);
-      setError('Network error');
+    } catch (error) {
+      console.error('Error fetching space data:', error);
+      setError('Failed to load space');
       setIsLoading(false);
     }
   };
 
-  const connectWebSocket = () => {
-    // Close existing connection if any
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    
-    const ws = new WebSocket('ws://localhost:3001');
-    wsRef.current = ws;
+  // Zoom functions removed - not needed for the simplified UI
 
-    ws.onopen = () => {
-      // Immediately join the space for faster connection
-      ws.send(JSON.stringify({
-        type: 'join',
-        payload: {
-          spaceId: parseInt(spaceId!),
-          token: token
-        }
-      }));
-    };
-
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      // Process messages immediately without console.log for performance
-
-      switch (message.type) {
-        case 'space-joined':
-          // Initialize current user position
-          const spawnX = message.payload.spawn.x;
-          const spawnY = message.payload.spawn.y;
-          
-          setCurrentUser({
-            x: spawnX,
-            y: spawnY,
-            userId: message.payload.userId
-          });
-          
-          // Reset zoom to 100% (normal view)
-          setZoom(1);
-          
-          // Center the scroll position on the player's spawn location
-          setTimeout(() => {
-            centerScrollOnPlayer(spawnX, spawnY, false);
-          }, 100); // Small delay to ensure DOM is updated
-          
-          // Initialize other users from the payload
-          const userMap = new Map();
-          message.payload.users.forEach((u: any) => {
-            if (u.userId && u.userId !== message.payload.userId) {
-              userMap.set(u.userId, {
-                id: u.userId,
-                x: u.x || 0,
-                y: u.y || 0
-              });
-            }
-          });
-          setUsers(userMap);
-          
-          // Load initial messages from the payload
-          if (message.payload.messages && Array.isArray(message.payload.messages)) {
-            setChatMessages(message.payload.messages);
-          }
-          break;
-        
-        case 'user-joined':
-          setUsers(prev => {
-            const newUsers = new Map(prev);
-            // Only add if it's not the current user and not already in the list
-            if (message.payload.userId !== currentUser?.userId && !newUsers.has(message.payload.userId)) {
-              newUsers.set(message.payload.userId, {
-                id: message.payload.userId,
-                x: message.payload.x || 0,
-                y: message.payload.y || 0
-              });
-            }
-            return newUsers;
-          });
-          break;
-        
-        case 'user-left':
-          setUsers(prev => {
-            const newUsers = new Map(prev);
-            newUsers.delete(message.payload.userId);
-            return newUsers;
-          });
-          break;
-        
-        case 'movement':
-          // Immediately update other users' positions for fast synchronization
-          if (message.payload.userId !== currentUser?.userId) {
-            setUsers(prev => {
-              const newUsers = new Map(prev);
-              const user = newUsers.get(message.payload.userId);
-              if (user) {
-                // Always update position immediately
-                newUsers.set(message.payload.userId, {
-                  ...user,
-                  x: message.payload.x,
-                  y: message.payload.y
-                });
-              }
-              return newUsers;
-            });
-          }
-          break;
-        
-        case 'movement-accepted':
-          // Confirm current user position when movement is accepted
-          setCurrentUser(prev => prev ? {
-            ...prev,
-            x: message.payload.x,
-            y: message.payload.y
-          } : null);
-          break;
-        
-        case 'movement-rejected':
-          // Reset current user position if movement was rejected
-          setCurrentUser(prev => prev ? {
-            ...prev,
-            x: message.payload.x,
-            y: message.payload.y
-          } : null);
-          break;
-        
-        case 'chat':
-          // Add new chat message
-          setChatMessages(prev => [...prev, {
-            userId: message.payload.userId,
-            displayName: message.payload.displayName,
-            text: message.payload.text,
-            createdAt: message.payload.createdAt
-          }]);
-          break;
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setError('Connection error');
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-    let newX = currentUser.x;
-    let newY = currentUser.y;
-
-    switch (e.key) {
-      case 'ArrowUp':
-        e.preventDefault(); // Prevent scrolling
-        newY = Math.max(0, currentUser.y - 1);
-        break;
-      case 'ArrowDown':
-        e.preventDefault(); // Prevent scrolling
-        newY = Math.min(space!.height - 1, currentUser.y + 1);
-        break;
-      case 'ArrowLeft':
-        e.preventDefault(); // Prevent scrolling
-        newX = Math.max(0, currentUser.x - 1);
-        break;
-      case 'ArrowRight':
-        e.preventDefault(); // Prevent scrolling
-        newX = Math.min(space!.width - 1, currentUser.x + 1);
-        break;
-      default:
-        return;
-    }
-
-    if (newX !== currentUser.x || newY !== currentUser.y) {
-      // Optimistically update current user position for immediate feedback
-      setCurrentUser(prev => prev ? {
-        ...prev,
-        x: newX,
-        y: newY
-      } : null);
-      
-      // Send movement request immediately
-      wsRef.current.send(JSON.stringify({
-        type: 'move',
-        payload: {
-          x: newX,
-          y: newY,
-          userId: currentUser.userId
-        }
-      }));
+  // Chat message handler
+  const handleSendMessage = (messageText: string) => {
+    if (wsRef.current && messageText.trim()) {
+      // Send to server - let the server broadcast to all users including sender
+      wsRef.current.send(
+        JSON.stringify({
+          class: 'chat',
+          type: 'send-message',
+          payload: {
+            spaceId: parseInt(spaceId!),
+            text: messageText.trim(),
+          },
+        })
+      );
     }
   };
 
-  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!currentUser || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !space) {
-      console.log('Double-click blocked: missing requirements');
-      return;
-    }
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    
-    // Since canvas is positioned absolutely, use direct click coordinates on canvas
-    const canvasClickX = e.clientX - rect.left;
-    const canvasClickY = e.clientY - rect.top;
-    
-    // Convert to grid coordinates (no need to account for canvas offset here)
-    const x = Math.floor(canvasClickX / CELL_SIZE);
-    const y = Math.floor(canvasClickY / CELL_SIZE);
-
-    console.log(`Double-click at canvas (${canvasClickX}, ${canvasClickY}) -> grid (${x}, ${y})`);
-
-    // Validate bounds
-    if (x < 0 || x >= space.width || y < 0 || y >= space.height) {
-      console.log(`Click out of bounds: (${x}, ${y}), space size: ${space.width}x${space.height}`);
-      return;
-    }
-
-    console.log(`Teleporting from (${currentUser.x}, ${currentUser.y}) to (${x}, ${y})`);
-
-    // Optimistically update current user position for teleportation
-    setCurrentUser(prev => prev ? {
-      ...prev,
-      x: x,
-      y: y
-    } : null);
-
-    // Send teleport request (using move message but allowing any distance)
-    wsRef.current.send(JSON.stringify({
-      type: 'move',
-      payload: {
-        x: x,
-        y: y,
-        userId: currentUser.userId,
-        teleport: true // Flag to indicate this is a teleport
-      }
-    }));
-  };
-
-  const handleCanvasClick = (_e: React.MouseEvent<HTMLCanvasElement>) => {
-    // Single click is disabled - use double-click to teleport or arrow keys to move
-  };
-
-  const sendChatMessage = () => {
-    if (!newMessage.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !user) {
-      return;
-    }
-
-    wsRef.current.send(JSON.stringify({
-      type: 'chat',
-      payload: {
-        text: newMessage.trim(),
-        displayName: user.username || `User ${user.id}`
-      }
-    }));
-
-    setNewMessage('');
-  };
-
-  const handleChatKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendChatMessage();
-    }
-  };
-
-  useEffect(() => {
-    const keyHandler = (e: KeyboardEvent) => {
-      // Handle ESC key for fullscreen exit
-      if (e.key === 'Escape' && isFullscreen) {
-        exitFullscreen();
-        return;
-      }
-      
-      // Handle movement keys
-      handleKeyDown(e);
-    };
-
-    window.addEventListener('keydown', keyHandler);
-    return () => window.removeEventListener('keydown', keyHandler);
-  }, [currentUser, space, isFullscreen]);
-
-  // Fullscreen functionality
+  // Fullscreen functions
   const enterFullscreen = () => {
-    const canvasContainer = document.querySelector('.canvas-container') as HTMLElement;
-    if (canvasContainer && canvasContainer.requestFullscreen) {
-      canvasContainer.requestFullscreen();
+    const gameContainer = document.querySelector(
+      '.phaser-game-container'
+    ) as HTMLElement;
+    if (gameContainer && gameContainer.requestFullscreen) {
+      gameContainer.requestFullscreen();
       setIsFullscreen(true);
     }
   };
@@ -440,164 +156,201 @@ export const SpaceViewPage = () => {
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    return () =>
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Auto-scroll chat to the latest message
+  // Initialize Phaser only after space data is loaded and UI is rendered
   useEffect(() => {
-    if (chatMessagesRef.current) {
-      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
-    }
-  }, [chatMessages]);
-
-  // Zoom functions - scrolling handles navigation
-  const zoomInCentered = () => {
-    setZoom(Math.min(3, zoom + 0.25));
-  };
-
-  const zoomOutCentered = () => {
-    setZoom(Math.max(0.25, zoom - 0.25));
-  };
-
-  // Helper function to center scroll on player
-  const centerScrollOnPlayer = (playerX: number, playerY: number, smooth = false) => {
-    const canvas = canvasRef.current;
-    const scrollContainer = canvas?.parentElement?.parentElement;
-    if (canvas && scrollContainer) {
-      const playerCanvasX = playerX * CELL_SIZE + CELL_SIZE / 2 + 500;
-      const playerCanvasY = playerY * CELL_SIZE + CELL_SIZE / 2 + 500;
-      
-      const scrollLeft = playerCanvasX - scrollContainer.clientWidth / 2;
-      const scrollTop = playerCanvasY - scrollContainer.clientHeight / 2;
-      
-      if (smooth) {
-        scrollContainer.scrollTo({
-          left: Math.max(0, scrollLeft),
-          top: Math.max(0, scrollTop),
-          behavior: 'smooth'
-        });
-      } else {
-        scrollContainer.scrollLeft = Math.max(0, scrollLeft);
-        scrollContainer.scrollTop = Math.max(0, scrollTop);
-      }
-    }
-  };
-
-  const drawCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !space || !currentUser) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw grid
-    ctx.strokeStyle = '#2a2a3e';
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= space.width; x++) {
-      ctx.beginPath();
-      ctx.moveTo(x * CELL_SIZE, 0);
-      ctx.lineTo(x * CELL_SIZE, space.height * CELL_SIZE);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= space.height; y++) {
-      ctx.beginPath();
-      ctx.moveTo(0, y * CELL_SIZE);
-      ctx.lineTo(space.width * CELL_SIZE, y * CELL_SIZE);
-      ctx.stroke();
+    if (!gameRef.current || !space || !token || !spaceId || isLoading) {
+      console.log('Phaser init conditions not met:', {
+        gameRef: !!gameRef.current,
+        space: !!space,
+        token: !!token,
+        spaceId: !!spaceId,
+        isLoading,
+      });
+      return;
     }
 
-    // Draw elements (all elements are obstacles/non-walkable)
-    space.elements.forEach((element) => {
-      const elemX = element.x * CELL_SIZE;
-      const elemY = element.y * CELL_SIZE;
-      const elemWidth = element.element.width * CELL_SIZE;
-      const elemHeight = element.element.height * CELL_SIZE;
-      
-      // Use lighter red colors and rounded corners
-      ctx.fillStyle = '#fca5a5'; // Light red color for obstacles
-      ctx.strokeStyle = '#ef4444'; // Medium red border
-      ctx.lineWidth = 2;
-      
-      // Draw rounded rectangle for obstacles
-      const cornerRadius = 8;
-      ctx.beginPath();
-      ctx.roundRect(elemX, elemY, elemWidth, elemHeight, cornerRadius);
-      ctx.fill();
-      ctx.stroke();
-      
-      // Add text label showing element ID (E{elementId})
-      ctx.fillStyle = '#7f1d1d'; // Dark red text
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      // Calculate center position for text
-      const centerX = elemX + elemWidth / 2;
-      const centerY = elemY + elemHeight / 2;
-      
-      ctx.fillText(
-        `E${element.element.id}`,
-        centerX,
-        centerY
-      );
-    });
+    console.log('Initializing Phaser game...', gameRef.current);
 
-    // Draw other users
-    users.forEach((user) => {
-      // Quick validation without console.log for performance
-      if (typeof user.x !== 'number' || typeof user.y !== 'number') {
+    // Add a small delay to ensure DOM is fully rendered
+    const initTimeout = setTimeout(() => {
+      if (!gameRef.current) {
+        console.error('Game ref lost during timeout');
         return;
       }
-      
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(
-        user.x * CELL_SIZE + CELL_SIZE / 2,
-        user.y * CELL_SIZE + CELL_SIZE / 2,
-        CELL_SIZE / 3,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-      
-      // Draw user label
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(
-        `User ${String(user.id || 'Unknown').slice(-4)}`, 
-        user.x * CELL_SIZE + CELL_SIZE / 2, 
-        user.y * CELL_SIZE + CELL_SIZE / 2 + 25
-      );
+
+      // Initialize Phaser
+      const config: Phaser.Types.Core.GameConfig = {
+        type: Phaser.AUTO,
+        parent: gameRef.current,
+        backgroundColor: '#ffffff',
+        scale: {
+          mode: Phaser.Scale.RESIZE,
+          width: '100%',
+          height: '100%',
+        },
+        physics: {
+          default: 'arcade',
+          arcade: {
+            gravity: { x: 0, y: 0 },
+            debug: false,
+          },
+        },
+        scene: GameScene,
+        audio: {
+          disableWebAudio: true,
+        },
+      };
+
+      console.log('Creating Phaser game instance...', config);
+      // Create game instance
+      gameInstanceRef.current = new Phaser.Game(config);
+
+      // Waiting for scene:
+      const interval = setInterval(() => {
+        const scene = gameInstanceRef.current!.scene.getScene(
+          'GameScene'
+        ) as GameScene;
+        if (scene) {
+          clearInterval(interval);
+
+          wsRef.current = new WebSocket('ws://localhost:3001');
+
+          wsRef.current.onopen = () => {
+            if (!wsRef.current) return;
+
+            const onUserIdRecieved = (userId: string) => {
+              console.log('User ID received:', userId);
+              setCurrentUserId(userId);
+            };
+
+            const onUserJoined = (
+              userId: string,
+              username: string,
+              x: number,
+              y: number
+            ) => {
+              console.log('User joined UI update:', { userId, username, x, y });
+              setOnlineUsers((prev) =>
+                new Map(prev).set(userId, { x, y, username })
+              );
+            };
+
+            const onUserMoved = (userId: string, x: number, y: number) => {
+              console.log('User moved UI update:', { userId, x, y });
+              if (userId === currentUserId) {
+                // Current user position tracking removed
+              } else {
+                setOnlineUsers((prev) => {
+                  const newMap = new Map(prev);
+                  const user = newMap.get(userId);
+                  if (user) {
+                    newMap.set(userId, { ...user, x, y });
+                  }
+                  return newMap;
+                });
+              }
+            };
+
+            const onUserLeft = (userId: string) => {
+              console.log('User left UI update:', userId);
+              setOnlineUsers((prev) => {
+                const newMap = new Map(prev);
+                newMap.delete(userId);
+                return newMap;
+              });
+            };
+
+            const onSpaceJoined = (
+              users: any[],
+              currentUser: { x: number; y: number }
+            ) => {
+              console.log('Space joined UI update:', { users, currentUser });
+              // Current user position tracking removed
+              const userMap = new Map();
+              users.forEach((user) => {
+                if (user.userId && user.userId !== currentUserId) {
+                  userMap.set(user.userId, {
+                    x: user.x,
+                    y: user.y,
+                    username: user.username,
+                  });
+                }
+              });
+              setOnlineUsers(userMap);
+              // Fetch existing chat messages
+              fetchChatMessages();
+            };
+
+            const onChatMessage = (message: any) => {
+              console.log('New chat message received:', message);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: message.id,
+                  userId: message.userId,
+                  displayName: message.displayName,
+                  text: message.text,
+                  createdAt: message.createdAt,
+                },
+              ]);
+            };
+
+            scene.init({
+              wsClient: wsRef.current,
+              token: token!,
+              spaceId: spaceId!,
+              onUserIdRecieved,
+              onUserJoined,
+              onUserMoved,
+              onUserLeft,
+              onSpaceJoined,
+              onChatMessage,
+            });
+          };
+
+          wsRef.current.onerror = (error) => {
+            console.error('WebSocket error:', error);
+          };
+
+          wsRef.current.onclose = () => {
+            console.log('WebSocket closed');
+          };
+        }
+      }, 1000);
+    }, 100); // 100ms delay for DOM rendering
+
+    window.addEventListener('unload', () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (gameInstanceRef.current) {
+        gameInstanceRef.current.destroy(true);
+      }
     });
 
-    // Draw current user
-    ctx.fillStyle = '#10b981';
-    ctx.beginPath();
-    ctx.arc(
-      currentUser.x * CELL_SIZE + CELL_SIZE / 2,
-      currentUser.y * CELL_SIZE + CELL_SIZE / 2,
-      CELL_SIZE / 3,
-      0,
-      Math.PI * 2
+    // Cleanup
+    return () => {
+      clearTimeout(initTimeout);
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (gameInstanceRef.current) {
+        gameInstanceRef.current.destroy(true);
+      }
+    };
+  }, [token, spaceId, space, isLoading]);
+
+  if (!user || !token) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white">Please log in to view this space.</div>
+      </div>
     );
-    ctx.fill();
-    
-    // Draw current user border
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    // Draw current user label
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('You', currentUser.x * CELL_SIZE + CELL_SIZE / 2, currentUser.y * CELL_SIZE + CELL_SIZE / 2 + 25);
-  };
+  }
 
   if (isLoading) {
     return (
@@ -631,7 +384,7 @@ export const SpaceViewPage = () => {
   return (
     <div className="min-h-screen bg-slate-900">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -644,15 +397,14 @@ export const SpaceViewPage = () => {
               Back to Dashboard
             </button>
             <h1 className="text-3xl font-bold text-white">{space.name}</h1>
-            {currentUser && (
-              <div className="text-sm text-slate-400 mt-1">
-                <p>Position: ({currentUser.x}, {currentUser.y})</p>
-                <p>User ID: {String(currentUser.userId || 'Unknown').slice(-8)}</p>
-                <p>Space ID: {spaceId}</p>
-              </div>
-            )}
+            <div className="text-sm text-slate-400 mt-1">
+              <p>Space ID: {spaceId}</p>
+              <p>
+                Size: {space.width} × {space.height}
+              </p>
+            </div>
           </div>
-          
+
           {/* Edit button for space owner only */}
           <div className="flex items-center gap-4">
             {isOwner && (
@@ -665,193 +417,58 @@ export const SpaceViewPage = () => {
             )}
             <div className="text-white">
               <p className="text-sm text-slate-400">Users online</p>
-              <p className="text-2xl font-bold">{users.size + (currentUser ? 1 : 0)}</p>
-              <div className="text-xs text-slate-500 mt-1">
-                Other Users: {Array.from(users.entries()).map(([id, user]) => 
-                  `${String(id).slice(-4)}:(${user.x},${user.y})`
-                ).join(', ') || 'None'}
-              </div>
+              <p className="text-2xl font-bold">{onlineUsers.size + 1}</p>
             </div>
           </div>
         </div>
 
-        {/* Canvas */}
+        {/* Game and Chat Container */}
         <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl p-4 border border-slate-700">
-          {/* Zoom Controls */}
+          {/* Controls */}
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <button
-                onClick={zoomOutCentered}
-                className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title="Zoom Out (Centered on Player)"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="text-white text-sm px-3 py-1 bg-slate-700 rounded">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                onClick={zoomInCentered}
-                className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title="Zoom In (Centered on Player)"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => {
-                  setZoom(1);
-                  // Center scroll on current player position
-                  if (currentUser) {
-                    centerScrollOnPlayer(currentUser.x, currentUser.y, true);
-                  }
-                }}
-                className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title="Reset Zoom & Center on Player"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-              <button
                 onClick={isFullscreen ? exitFullscreen : enterFullscreen}
                 className="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
+                title={
+                  isFullscreen ? 'Exit Fullscreen (ESC)' : 'Enter Fullscreen'
+                }
               >
-                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                {isFullscreen ? (
+                  <Minimize className="w-4 h-4" />
+                ) : (
+                  <Maximize className="w-4 h-4" />
+                )}
               </button>
             </div>
             <div className="text-slate-300 text-sm">
-              Arrows to move • Double-click-teleport • Scroll to navigate • ESC exits fullscreen
+              Arrow keys to move • ESC exits fullscreen
             </div>
           </div>
-          
-          {/* Canvas Container with Scrollable Area */}
-          <div 
-            className={`canvas-container ${
-              isFullscreen 
-                ? 'fixed inset-0 z-50 flex bg-slate-900' 
-                : 'flex rounded-lg border border-slate-600 bg-slate-900 h-[60vh]'
+
+          {/* Game and Chat Layout */}
+          <div
+            className={`phaser-game-container ${
+              isFullscreen
+                ? 'fixed inset-0 z-50 flex bg-slate-900'
+                : 'rounded-lg border border-slate-600 bg-slate-900 h-[60vh] w-full flex'
             }`}
           >
-            {/* Game Area (70% width in both normal and fullscreen modes) */}
-            <div 
-              className="flex-[0.7] overflow-auto"
-              style={{ 
-                scrollBehavior: 'smooth',
-                overflowX: 'auto',
-                overflowY: 'auto'
-              }}
-            >
-              <div
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: 'top left',
-                  transition: 'transform 0.2s ease-out',
-                  // Make the scrollable area much larger to allow full grid navigation
-                  width: `${(space.width * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
-                  height: `${(space.height * CELL_SIZE + 1000) * zoom}px`, // Scale with zoom
-                  position: 'relative',
-                  minWidth: '100%',
-                  minHeight: '100%'
-                }}
-              >
-              {/* Background padding area with subtle pattern */}
-              <div 
-                className="absolute inset-0"
-                style={{
-                  background: 'radial-gradient(circle at center, rgba(30, 41, 59, 0.1) 1px, transparent 1px)',
-                  backgroundSize: '20px 20px',
-                  opacity: 0.3
-                }}
-              />
-              
-                {/* Canvas centered within the padded container */}
-                <canvas
-                  ref={canvasRef}
-                  width={space.width * CELL_SIZE}
-                  height={space.height * CELL_SIZE}
-                  onClick={handleCanvasClick}
-                  onDoubleClick={handleCanvasDoubleClick}
-                  className="block shadow-lg"
-                  title="Double-click to teleport, use arrow keys to walk"
-                  style={{
-                    position: 'absolute',
-                    left: '500px', // Center the canvas within the padded area
-                    top: '500px',   // Center the canvas within the padded area
-                    border: '2px solid rgba(59, 130, 246, 0.3)', // Subtle border to show game area
-                    borderRadius: '4px',
-                    cursor: 'default' // Normal cursor, no special pointer
-                  }}
-                />
-              </div>
+            {/* Game Area - 70% */}
+            <div className="w-[70%] h-full relative">
+              <div ref={gameRef} className="w-full h-full" />
             </div>
 
-            {/* Chat Panel (30% width - always show when currentUser exists) */}
-            {currentUser && (
-              <div className="flex-[0.3] bg-slate-800 border-l border-slate-600 flex flex-col">
-                {/* Chat Header */}
-                <div className="p-4 border-b border-slate-600">
-                  <h3 className="text-white font-semibold">Group Chat</h3>
-                  <p className="text-slate-400 text-sm">{users.size + 1} users online</p>
-                </div>
-
-                {/* Chat Messages */}
-                <div ref={chatMessagesRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {chatMessages.length === 0 ? (
-                    <div className="text-slate-400 text-sm text-center py-8">
-                      No messages yet. Say hello! 👋
-                    </div>
-                  ) : (
-                    chatMessages.map((message, index) => (
-                      <div key={message.id || index} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className={`w-2 h-2 rounded-full ${
-                              message.userId === currentUser?.userId ? 'bg-green-500' : 'bg-orange-500'
-                            }`}
-                          />
-                          <span className="text-slate-300 text-xs font-medium">
-                            {message.displayName}
-                          </span>
-                          <span className="text-slate-500 text-xs">
-                            {new Date(message.createdAt).toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </span>
-                        </div>
-                        <div className="text-white text-sm ml-4 pl-2 border-l border-slate-600">
-                          {message.text}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Chat Input */}
-                <div className="p-4 border-t border-slate-600">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleChatKeyPress}
-                      placeholder="Type a message..."
-                      className="flex-1 bg-slate-700 text-white px-3 py-2 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500 text-sm"
-                      maxLength={2000}
-                    />
-                    <button
-                      onClick={sendChatMessage}
-                      disabled={!newMessage.trim()}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Send
-                    </button>
-                  </div>
-                  <p className="text-slate-500 text-xs mt-2">
-                    Press Enter to send • Chat history is saved
-                  </p>
-                </div>
-              </div>
-            )}
+            {/* Chat Area - 30% */}
+            <div className="w-[30%] h-full">
+              <Chat
+                spaceId={spaceId!}
+                currentUserId={currentUserId}
+                isFullscreen={isFullscreen}
+                onSendMessage={handleSendMessage}
+                messages={messages}
+              />
+            </div>
           </div>
         </div>
 
@@ -874,3 +491,5 @@ export const SpaceViewPage = () => {
     </div>
   );
 };
+
+export default SpaceViewPage;
