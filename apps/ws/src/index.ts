@@ -1,19 +1,23 @@
-import dotenv from "dotenv";
-// Load environment variables from .env file in project root
-dotenv.config({ path: "../../.env" });
-
+require('dotenv').config();
 import { WebSocketServer } from 'ws';
 import { User } from './User';
-import { WS_PORT } from './config';
 
-const wss = new WebSocketServer({ port: WS_PORT });
+const wss = new WebSocketServer({ port: 3001 });
 
-wss.on('connection', function connection(ws) {
-  console.log("user connected")
+wss.on('connection', async function connection(ws) {
+  ws.send(
+    JSON.stringify({
+      class: 'game',
+      type: 'workers-created',
+      payload: {},
+    })
+  );
+
   let user = new User(ws);
+
   ws.on('error', console.error);
 
   ws.on('close', () => {
-    user?.destroy();
+    user.destroy();
   });
 });

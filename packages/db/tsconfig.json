@@ -106,5 +106,5 @@
     "skipLibCheck": true /* Skip type checking all .d.ts files. */,
     "composite": true
   },
-    "exclude": ["seed.ts", "clear-resources.ts", "clear-resources.js"]
+  "exclude": ["seed.ts", "clear-resources.ts", "clear-resources.js", "dist"]
 }
