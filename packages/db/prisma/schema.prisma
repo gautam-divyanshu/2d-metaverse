@@ -57,16 +57,31 @@ model User {
   username        String            @unique @db.VarChar(255)
   password        String
   avatarId        Int?              @map("avatar_id")
+  avatarName      String?           @map("avatar_name") @db.VarChar(255)
   role            UserRole          @default(user)
+  lastLoginAt     DateTime?         @map("last_login_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  avatar          Avatar?           @relation("UserAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
+  spaces          Space[]           @relation("SpaceOwner")
   createdAvatars  Avatar[]          @relation("AvatarCreator")
   createdElements Element[]         @relation("ElementCreator")
   createdMaps     Map[]             @relation("MapCreator")
   messages        Message[]
-  spaces          Space[]           @relation("SpaceOwner")
+  activityLogs    ActivityLog[]
   user_map_visits user_map_visits[]
-  avatar          Avatar?           @relation("UserAvatar", fields: [avatarId], references: [id])
 
   @@map("users")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  date      DateTime @db.Date
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("activity_logs")
 }
 
 model Space {

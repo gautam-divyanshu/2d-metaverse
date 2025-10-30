@@ -10,6 +10,7 @@ import { SpaceEditorPage } from './pages/SpaceEditorPage';
 import { MapViewPage } from './pages/MapViewPage';
 import { MapEditorPage } from './pages/MapEditorPage';
 import { AdminPanelPage } from './pages/AdminPanelPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 function App() {
   return (
@@ -73,6 +74,15 @@ function App() {
                   <AdminPanelPage />
                 </ProtectedRoute>
               }
+            />
+            
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              } 
             />
           </Routes>
         </div>
