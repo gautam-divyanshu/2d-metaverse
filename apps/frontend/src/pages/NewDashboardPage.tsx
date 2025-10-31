@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Header } from '../components/Header';
 import { MapTemplateSelector } from '../components/MapTemplateSelector';
-import { Plus, MoreHorizontal, Key } from 'lucide-react';
+import { MapsGrid } from '../components/dashboard/MapsGrid';
+import { CreateMapModal } from '../components/dashboard/CreateMapModal';
+import { EnterCodeModal } from '../components/dashboard/EnterCodeModal';
+import { Plus, Key } from 'lucide-react';
 
 interface MapSpace {
   id: number;
@@ -335,88 +338,16 @@ export const NewDashboardPage = () => {
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div
-                  className="bg-gray-300 rounded-2xl mb-3"
-                  style={{ aspectRatio: '16 / 9' }}
-                ></div>
-                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-              </div>
-            ))}
-          </div>
+          <MapsGrid maps={[]} isLoading={true} onMapClick={handleMapClick} />
         ) : (
           <>
             {/* Maps Grid */}
             {(activeTab === 'recent' ? recentMaps : myMaps).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(activeTab === 'recent' ? recentMaps : myMaps).map((map) => (
-                  <div
-                    key={map.id}
-                    className="group cursor-pointer"
-                    onClick={() => handleMapClick(map.id, map.isOwner)}
-                  >
-                    {/* Map Thumbnail with 16:9 aspect ratio */}
-                    <div
-                      className="relative mb-3 overflow-hidden transform hover:scale-105 hover:shadow-xl transition-all duration-300 ease-out group"
-                      style={{
-                        aspectRatio: '16 / 9',
-                        backgroundImage: `url('/assets/maps_thumbnails/map1.png')`,
-                        backgroundSize: 'cover',
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'center center',
-                        borderRadius: '16px',
-                      }}
-                    >
-                      {/* Hover overlay with enter icon */}
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 ease-out flex items-center justify-center">
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out">
-                          <div className="bg-white p-3 rounded-full shadow-lg">
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-6 h-6 text-gray-800"
-                            >
-                              <path
-                                d="M16 12H4M16 12L10.999 7M16 12L10.999 17.001M16 4H18C19.105 4 20 4.895 20 6V18C20 19.105 19.105 20 18 20H16"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* OWNER Badge */}
-                      {map.isOwner && (
-                        <div className="absolute top-3 left-3 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg">
-                          👑 OWNER
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Map Name with More Options */}
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
-                        {map.name}
-                      </h3>
-                      <button
-                        className="p-1 hover:bg-gray-100 rounded transition-colors ml-2 flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          console.log('More options for', map.name);
-                        }}
-                      >
-                        <MoreHorizontal className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <MapsGrid
+                maps={activeTab === 'recent' ? recentMaps : myMaps}
+                isLoading={false}
+                onMapClick={handleMapClick}
+              />
             ) : (
               /* Empty State - Clean design matching your image */
               <div className="h-64 flex items-center justify-center">
@@ -439,162 +370,28 @@ export const NewDashboardPage = () => {
       />
 
       {/* Create Map Modal */}
-      {showCreateMapModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {selectedTemplate ? 'Create Map from Template' : 'Create New Map'}
-            </h3>
-            <form onSubmit={handleCreateMap} className="space-y-4">
-              {selectedTemplate && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-blue-800">
-                    Creating from template #{selectedTemplate}
-                  </p>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Map Name
-                </label>
-                <input
-                  type="text"
-                  value={newMap.name}
-                  onChange={(e) =>
-                    setNewMap({ ...newMap, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
-                  placeholder="My Awesome Map"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Width
-                  </label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="1000"
-                    value={newMap.width}
-                    onChange={(e) =>
-                      setNewMap({
-                        ...newMap,
-                        width: parseInt(e.target.value) || 100,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
-                    placeholder="100"
-                    required
-                    style={{
-                      colorScheme: 'light',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Height
-                  </label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="1000"
-                    value={newMap.height}
-                    onChange={(e) =>
-                      setNewMap({
-                        ...newMap,
-                        height: parseInt(e.target.value) || 100,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
-                    placeholder="100"
-                    required
-                    style={{
-                      colorScheme: 'light',
-                    }}
-                  />
-                </div>
-              </div>
-              {/* Template checkbox for admins only */}
-              {user?.role === 'admin' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name="isTemplate"
-                    id="isTemplate"
-                    className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                  />
-                  <label htmlFor="isTemplate" className="text-sm text-gray-700">
-                    Make this map available as a template for other users
-                  </label>
-                </div>
-              )}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateMapModal(false);
-                    setSelectedTemplate(null);
-                  }}
-                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreatingMap}
-                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {isCreatingMap ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreateMapModal
+        isOpen={showCreateMapModal}
+        onClose={() => {
+          setShowCreateMapModal(false);
+          setSelectedTemplate(null);
+        }}
+        onSubmit={handleCreateMap}
+        newMap={newMap}
+        setNewMap={setNewMap}
+        selectedTemplate={selectedTemplate}
+        isCreatingMap={isCreatingMap}
+        userRole={user?.role}
+      />
 
       {/* Enter with Code Modal */}
-      {showEnterCodeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Enter with Code
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Access Code
-                </label>
-                <input
-                  type="text"
-                  value={enterCode}
-                  onChange={(e) => setEnterCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
-                  placeholder="Enter access code (e.g. ABC123)"
-                  maxLength={6}
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEnterCodeModal(false)}
-                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleEnterWithCode}
-                  disabled={!enterCode.trim()}
-                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
-                >
-                  Join Map
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <EnterCodeModal
+        isOpen={showEnterCodeModal}
+        onClose={() => setShowEnterCodeModal(false)}
+        onSubmit={handleEnterWithCode}
+        enterCode={enterCode}
+        setEnterCode={setEnterCode}
+      />
     </div>
   );
 };
