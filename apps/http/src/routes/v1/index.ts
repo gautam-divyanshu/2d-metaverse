@@ -2,11 +2,8 @@ import { Router } from 'express';
 import { userRouter } from './user';
 import { spaceRouter } from './space';
 import { adminRouter } from './admin';
-import { SigninSchema, SignupSchema } from '../../types';
-import { hash, compare } from '../../scrypt';
+import { authRouter } from './auth';
 import client from '@repo/db/client';
-import jwt from 'jsonwebtoken';
-import { JWT_PASSWORD } from '../../config';
 
 export const router = Router();
 
@@ -27,105 +24,7 @@ router.get('/health', async (req, res) => {
   }
 });
 
-router.post('/signup', async (req, res) => {
-  console.log('inside signup');
-  console.log(
-    'Environment check - DATABASE_URL exists:',
-    !!process.env.DATABASE_URL
-  );
-
-  // check the user
-  const parsedData = SignupSchema.safeParse(req.body);
-  if (!parsedData.success) {
-    console.log('parsed data incorrect', parsedData.error);
-    res
-      .status(400)
-      .json({ message: 'Validation failed', errors: parsedData.error.issues });
-    return;
-  }
-
-  try {
-    console.log('Attempting to hash password...');
-    const hashedPassword = await hash(parsedData.data.password);
-    console.log('Password hashed successfully');
-
-    console.log('Attempting database connection...');
-    const user = await client.user.create({
-      data: {
-        username: parsedData.data.username,
-        password: hashedPassword,
-        role: parsedData.data.type === 'admin' ? 'admin' : 'user',
-        avatarId: parsedData.data.avatarId
-          ? parseInt(parsedData.data.avatarId)
-          : undefined,
-      },
-    });
-    console.log('User created successfully:', user.id);
-    res.json({
-      userId: user.id,
-    });
-  } catch (e) {
-    console.log('Database error occurred:');
-    console.error(e);
-
-    // Check if it's a specific Prisma error
-    if (e && typeof e === 'object' && 'code' in e) {
-      if (e.code === 'P2002') {
-        res.status(400).json({ message: 'Username already exists' });
-      } else if (e.code === 'P1001') {
-        res.status(500).json({ message: 'Database connection failed' });
-      } else {
-        res.status(500).json({ message: 'Database error', code: e.code });
-      }
-    } else {
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-});
-
-router.post('/signin', async (req, res) => {
-  const parsedData = SigninSchema.safeParse(req.body);
-  if (!parsedData.success) {
-    res.status(403).json({ message: 'Validation failed' });
-    return;
-  }
-
-  try {
-    const user = await client.user.findUnique({
-      where: {
-        username: parsedData.data.username,
-      },
-    });
-
-    if (!user) {
-      res.status(403).json({ message: 'User not found' });
-      return;
-    }
-    const isValid = await compare(parsedData.data.password, user.password);
-
-    if (!isValid) {
-      res.status(403).json({ message: 'Invalid password' });
-      return;
-    }
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        role: user.role,
-      },
-      JWT_PASSWORD
-    );
-
-    res.json({
-      token,
-      userId: user.id.toString(),
-      role: user.role,
-      avatarId: user.avatarId,
-    });
-  } catch (e) {
-    res.status(400).json({ message: 'Internal server error' });
-  }
-});
+router.use('/auth', authRouter);
 
 router.get('/elements', async (req, res) => {
   const elements = await client.element.findMany();

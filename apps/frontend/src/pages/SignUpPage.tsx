@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from "lucide-react";
-import { useAuth } from '../contexts/AuthContext'
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Avatar {
   id: string;
@@ -14,28 +14,28 @@ export const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [avatars, setAvatars] = useState<Avatar[]>([]);
-  const [selectedAvatar, setSelectedAvatar] = useState<string>("");
+  const [selectedAvatar, setSelectedAvatar] = useState<string>('');
   const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-    confirmPassword: "",
+    username: '',
+    password: '',
+    confirmPassword: '',
   });
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate('/dashboard', { replace: true })
+      navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, authLoading, navigate])
+  }, [isAuthenticated, authLoading, navigate]);
 
   // Fetch available avatars
   useEffect(() => {
     const fetchAvatars = async () => {
       try {
-        const response = await fetch("http://localhost:3000/api/v1/avatars");
+        const response = await fetch('http://localhost:3000/api/v1/avatars');
         const data = await response.json();
         if (response.ok) {
           setAvatars(data.avatars);
@@ -44,7 +44,7 @@ export const SignUpPage = () => {
           }
         }
       } catch (err) {
-        console.error("Failed to fetch avatars:", err);
+        console.error('Failed to fetch avatars:', err);
       }
     };
     fetchAvatars();
@@ -56,31 +56,31 @@ export const SignUpPage = () => {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
       </div>
-    )
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError("");
+    setError('');
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       setIsLoading(false);
       return;
     }
 
     try {
-      const response = await fetch("http://localhost:3000/api/v1/signup", {
-        method: "POST",
+      const response = await fetch('http://localhost:3000/api/v1/signup', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           username: formData.username,
           password: formData.password,
-          type: "user", // Default to regular user
+          type: 'user', // Default to regular user
           ...(selectedAvatar && { avatarId: selectedAvatar }), // Only include if avatar is selected
         }),
       });
@@ -90,11 +90,11 @@ export const SignUpPage = () => {
       if (response.ok) {
         // Auto sign-in after successful signup
         const signinResponse = await fetch(
-          "http://localhost:3000/api/v1/signin",
+          'http://localhost:3000/api/v1/auth/signup',
           {
-            method: "POST",
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
             },
             body: JSON.stringify({
               username: formData.username,
@@ -106,21 +106,21 @@ export const SignUpPage = () => {
         const signinData = await signinResponse.json();
 
         if (signinResponse.ok) {
-          localStorage.setItem("token", signinData.token);
+          localStorage.setItem('token', signinData.token);
           localStorage.setItem(
-            "user",
+            'user',
             JSON.stringify(signinData.user || { username: formData.username })
           );
-          navigate("/dashboard");
+          navigate('/dashboard');
         } else {
           // If auto-signin fails, redirect to signin page
-          navigate("/signin");
+          navigate('/signin');
         }
       } else {
-        setError(data.error || "Failed to create account");
+        setError(data.error || 'Failed to create account');
       }
     } catch (err) {
-      setError("Network error. Please try again.");
+      setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -159,9 +159,13 @@ export const SignUpPage = () => {
           <div className="text-center mb-8">
             <div className="flex justify-center space-x-2">
               <Sparkles className="w-8 h-8 text-blue-400" />
-              <span className="text-2xl font-bold text-white">Join MetaVerse</span>
+              <span className="text-2xl font-bold text-white">
+                Join MetaVerse
+              </span>
             </div>
-            <p className="text-white/70 mt-2">Create your account and start exploring</p>
+            <p className="text-white/70 mt-2">
+              Create your account and start exploring
+            </p>
           </div>
 
           {error && (
@@ -203,7 +207,7 @@ export const SignUpPage = () => {
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
                   value={formData.password}
@@ -260,9 +264,9 @@ export const SignUpPage = () => {
                       className={`
                         relative p-2 rounded-lg border-2 transition-all duration-200
                         ${
-                        selectedAvatar === avatar.id.toString()
-                            ? "border-blue-400 bg-blue-500/20"
-                            : "border-white/20 bg-white/5 hover:border-white/40"
+                          selectedAvatar === avatar.id.toString()
+                            ? 'border-blue-400 bg-blue-500/20'
+                            : 'border-white/20 bg-white/5 hover:border-white/40'
                         }
                       `}
                     >
@@ -295,14 +299,17 @@ export const SignUpPage = () => {
                   Creating Account...
                 </>
               ) : (
-                "Create Account"
+                'Create Account'
               )}
             </button>
           </form>
 
           <p className="text-center text-sm text-white/70 mt-8">
             Already have an account?{' '}
-            <Link to="/signin" className="text-blue-400 hover:text-blue-500 font-medium transition-colors">
+            <Link
+              to="/signin"
+              className="text-blue-400 hover:text-blue-500 font-medium transition-colors"
+            >
               Sign in
             </Link>
           </p>
