@@ -318,7 +318,7 @@ export const NewDashboardPage = () => {
           <div className="flex gap-4">
             <button
               onClick={() => setShowEnterCodeModal(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
             >
               <Key className="w-4 h-4" />
               Enter with Code
@@ -335,10 +335,13 @@ export const NewDashboardPage = () => {
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div className="aspect-square bg-gray-300 rounded-lg mb-3"></div>
+                <div
+                  className="bg-gray-300 rounded-2xl mb-3"
+                  style={{ aspectRatio: '16 / 9' }}
+                ></div>
                 <div className="h-4 bg-gray-300 rounded w-3/4"></div>
               </div>
             ))}
@@ -347,32 +350,50 @@ export const NewDashboardPage = () => {
           <>
             {/* Maps Grid */}
             {(activeTab === 'recent' ? recentMaps : myMaps).length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {(activeTab === 'recent' ? recentMaps : myMaps).map((map) => (
                   <div
                     key={map.id}
                     className="group cursor-pointer"
                     onClick={() => handleMapClick(map.id, map.isOwner)}
                   >
-                    {/* Map Thumbnail */}
-                    <div className="relative aspect-square rounded-lg overflow-hidden mb-3 hover:shadow-lg transition-shadow bg-gray-200">
-                      {/* Thumbnail Image or Placeholder */}
-                      {map.thumbnail ? (
-                        <img
-                          src={map.thumbnail}
-                          alt={map.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-green-300 to-yellow-200 flex items-center justify-center">
-                          {/* Mock game world with avatars */}
-                          <div className="absolute inset-4 bg-yellow-100 rounded-lg border-4"></div>
+                    {/* Map Thumbnail with 16:9 aspect ratio */}
+                    <div
+                      className="relative mb-3 overflow-hidden transform hover:scale-105 hover:shadow-xl transition-all duration-300 ease-out group"
+                      style={{
+                        aspectRatio: '16 / 9',
+                        backgroundImage: `url('/assets/maps_thumbnails/map1.png')`,
+                        backgroundSize: 'cover',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'center center',
+                        borderRadius: '16px',
+                      }}
+                    >
+                      {/* Hover overlay with enter icon */}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 ease-out flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out">
+                          <div className="bg-white p-3 rounded-full shadow-lg">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-6 h-6 text-gray-800"
+                            >
+                              <path
+                                d="M16 12H4M16 12L10.999 7M16 12L10.999 17.001M16 4H18C19.105 4 20 4.895 20 6V18C20 19.105 19.105 20 18 20H16"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
                         </div>
-                      )}
+                      </div>
 
                       {/* OWNER Badge */}
                       {map.isOwner && (
-                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                        <div className="absolute top-3 left-3 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg">
                           👑 OWNER
                         </div>
                       )}
@@ -442,7 +463,7 @@ export const NewDashboardPage = () => {
                   onChange={(e) =>
                     setNewMap({ ...newMap, name: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
                   placeholder="My Awesome Map"
                   required
                 />
@@ -463,9 +484,12 @@ export const NewDashboardPage = () => {
                         width: parseInt(e.target.value) || 100,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
                     placeholder="100"
                     required
+                    style={{
+                      colorScheme: 'light',
+                    }}
                   />
                 </div>
                 <div>
@@ -483,9 +507,12 @@ export const NewDashboardPage = () => {
                         height: parseInt(e.target.value) || 100,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
                     placeholder="100"
                     required
+                    style={{
+                      colorScheme: 'light',
+                    }}
                   />
                 </div>
               </div>
@@ -496,7 +523,7 @@ export const NewDashboardPage = () => {
                     type="checkbox"
                     name="isTemplate"
                     id="isTemplate"
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                   />
                   <label htmlFor="isTemplate" className="text-sm text-gray-700">
                     Make this map available as a template for other users
@@ -543,25 +570,25 @@ export const NewDashboardPage = () => {
                   type="text"
                   value={enterCode}
                   onChange={(e) => setEnterCode(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter 8-character access code (e.g. ABC123XY)"
-                  maxLength={8}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 placeholder-gray-400"
+                  placeholder="Enter access code (e.g. ABC123)"
+                  maxLength={6}
                 />
               </div>
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowEnterCodeModal(false)}
-                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEnterWithCode}
                   disabled={!enterCode.trim()}
-                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
                 >
-                  Enter
+                  Join Map
                 </button>
               </div>
             </div>
