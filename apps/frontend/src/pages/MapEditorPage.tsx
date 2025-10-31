@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Header } from '../components/Header';
-import { Button } from '../components/Button';
-import { ArrowLeft, Users, Plus, Trash2 } from 'lucide-react';
+import { MapEditorSidebar } from '../components/map-editor/MapEditorSidebar';
+import { MapEditorToolbar } from '../components/map-editor/MapEditorToolbar';
+import { ArrowLeft } from 'lucide-react';
 
 interface MapElement {
   id: number;
@@ -89,7 +89,8 @@ export const MapEditorPage = () => {
     y: number;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'elements' | 'spaces'>('elements');
-  const [showAddSpaceModal, setShowAddSpaceModal] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<string>('select');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     fetchMapData();
@@ -175,18 +176,12 @@ export const MapEditorPage = () => {
       return;
     }
 
-    // Canvas click coordinates (for element/space placement)
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Note: Delete functionality moved to sidebar for better UX
-
-    // Handle element placement
     if (selectedElement) {
       await handlePlaceElement(e);
-    }
-    // Handle space portal placement (represented as a special element)
-    else if (selectedSpace) {
+    } else if (selectedSpace) {
       await handlePlaceMapSpace(e);
     }
   };
@@ -210,19 +205,14 @@ export const MapEditorPage = () => {
     let x = Math.floor(rawX / CELL_SIZE);
     let y = Math.floor(rawY / CELL_SIZE);
 
-    // Center the element around the click point
     x = x - Math.floor(selectedElement.width / 2);
     y = y - Math.floor(selectedElement.height / 2);
 
-    // Validate bounds
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    if (x + selectedElement.width > map.width)
-      x = map.width - selectedElement.width;
-    if (y + selectedElement.height > map.height)
-      y = map.height - selectedElement.height;
+    if (x + selectedElement.width > 32) x = 32 - selectedElement.width;
+    if (y + selectedElement.height > 17) y = 17 - selectedElement.height;
 
-    // Check for overlaps
     const wouldOverlap = map.elements.some((existingElement) => {
       const existingEndX = existingElement.x + existingElement.element.width;
       const existingEndY = existingElement.y + existingElement.element.height;
@@ -242,7 +232,6 @@ export const MapEditorPage = () => {
       return;
     }
 
-    // Add element to map
     try {
       const response = await fetch(
         `http://localhost:3000/api/v1/user/map/${mapId}/element`,
@@ -278,8 +267,6 @@ export const MapEditorPage = () => {
   const handlePlaceMapSpace = async (
     e: React.MouseEvent<HTMLCanvasElement>
   ) => {
-    // For now, we'll represent space portals as special 2x2 elements
-    // In the future, you could create special "portal" elements in the database
     if (!map || !selectedSpace) return;
 
     const canvas = canvasRef.current;
@@ -298,21 +285,17 @@ export const MapEditorPage = () => {
     let x = Math.floor(rawX / CELL_SIZE);
     let y = Math.floor(rawY / CELL_SIZE);
 
-    // Use actual space dimensions
     const spaceWidth = selectedSpace.width;
     const spaceHeight = selectedSpace.height;
 
-    // Center the space around the click point
     x = x - Math.floor(spaceWidth / 2);
     y = y - Math.floor(spaceHeight / 2);
 
-    // Validate bounds
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    if (x + spaceWidth > map.width) x = map.width - spaceWidth;
-    if (y + spaceHeight > map.height) y = map.height - spaceHeight;
+    if (x + spaceWidth > 32) x = 32 - spaceWidth;
+    if (y + spaceHeight > 17) y = 17 - spaceHeight;
 
-    // Create the space portal
     try {
       const response = await fetch(
         `http://localhost:3000/api/v1/user/map/${mapId}/space`,
@@ -336,13 +319,11 @@ export const MapEditorPage = () => {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
         } catch (jsonError) {
-          // If response is not JSON, use status text
           errorMessage = `${response.status}: ${response.statusText}`;
         }
         throw new Error(errorMessage);
       }
 
-      // Refresh map data to show the new space
       fetchMapData();
       setSelectedSpace(null);
     } catch (error) {
@@ -439,21 +420,21 @@ export const MapEditorPage = () => {
 
     // Clear canvas
     ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, 1025, 550);
 
-    // Draw grid
+    // Draw grid (32 tiles wide x 17 tiles tall)
     ctx.strokeStyle = '#2a2a3e';
     ctx.lineWidth = 1;
-    for (let x = 0; x <= map.width; x++) {
+    for (let x = 0; x <= 32; x++) {
       ctx.beginPath();
       ctx.moveTo(x * CELL_SIZE, 0);
-      ctx.lineTo(x * CELL_SIZE, map.height * CELL_SIZE);
+      ctx.lineTo(x * CELL_SIZE, 17 * CELL_SIZE);
       ctx.stroke();
     }
-    for (let y = 0; y <= map.height; y++) {
+    for (let y = 0; y <= 17; y++) {
       ctx.beginPath();
       ctx.moveTo(0, y * CELL_SIZE);
-      ctx.lineTo(map.width * CELL_SIZE, y * CELL_SIZE);
+      ctx.lineTo(32 * CELL_SIZE, y * CELL_SIZE);
       ctx.stroke();
     }
 
@@ -464,19 +445,16 @@ export const MapEditorPage = () => {
       const elemWidth = element.element.width * CELL_SIZE;
       const elemHeight = element.element.height * CELL_SIZE;
 
-      // Use lighter red colors and rounded corners
       ctx.fillStyle = '#fca5a5';
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 2;
 
-      // Draw rounded rectangle for elements
       const cornerRadius = 8;
       ctx.beginPath();
       ctx.roundRect(elemX, elemY, elemWidth, elemHeight, cornerRadius);
       ctx.fill();
       ctx.stroke();
 
-      // Add text label showing element ID
       ctx.fillStyle = '#7f1d1d';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
@@ -486,30 +464,25 @@ export const MapEditorPage = () => {
       const centerY = elemY + elemHeight / 2;
 
       ctx.fillText(`E${element.element.id}`, centerX, centerY);
-
-      // Delete functionality available in sidebar
     });
 
-    // Draw existing map spaces (walkable areas)
+    // Draw existing map spaces
     map.mapSpaces?.forEach((mapSpace) => {
       const spaceX = mapSpace.x * CELL_SIZE;
       const spaceY = mapSpace.y * CELL_SIZE;
       const spaceWidth = mapSpace.width * CELL_SIZE;
       const spaceHeight = mapSpace.height * CELL_SIZE;
 
-      // Use green colors for walkable spaces
       ctx.fillStyle = '#86efac';
       ctx.strokeStyle = '#16a34a';
       ctx.lineWidth = 2;
 
-      // Draw rounded rectangle for spaces
       const cornerRadius = 8;
       ctx.beginPath();
       ctx.roundRect(spaceX, spaceY, spaceWidth, spaceHeight, cornerRadius);
       ctx.fill();
       ctx.stroke();
 
-      // Add text label showing space name
       ctx.fillStyle = '#15803d';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
@@ -525,32 +498,26 @@ export const MapEditorPage = () => {
         centerX,
         centerY
       );
-
-      // Delete functionality available in sidebar
     });
 
-    // Draw space elements (elements inside each space)
+    // Draw space elements
     map.mapSpaces?.forEach((mapSpace) => {
       mapSpace.elements?.forEach((spaceElement) => {
-        // Calculate absolute position: space position + element position within space
         const elemX = (mapSpace.x + spaceElement.x) * CELL_SIZE;
         const elemY = (mapSpace.y + spaceElement.y) * CELL_SIZE;
         const elemWidth = spaceElement.element.width * CELL_SIZE;
         const elemHeight = spaceElement.element.height * CELL_SIZE;
 
-        // Use blue colors for space elements to distinguish from map elements
         ctx.fillStyle = '#93c5fd';
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 2;
 
-        // Draw rounded rectangle for space elements
         const cornerRadius = 8;
         ctx.beginPath();
         ctx.roundRect(elemX, elemY, elemWidth, elemHeight, cornerRadius);
         ctx.fill();
         ctx.stroke();
 
-        // Add text label showing element ID (SE{elementId})
         ctx.fillStyle = '#1e40af';
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
@@ -563,19 +530,19 @@ export const MapEditorPage = () => {
       });
     });
 
-    // Draw preview of selected element at mouse position
+    // Draw preview
     if ((selectedElement || selectedSpace) && mousePosition) {
       let previewWidth, previewHeight, previewColor, previewText;
 
       if (selectedElement) {
         previewWidth = selectedElement.width;
         previewHeight = selectedElement.height;
-        previewColor = 'rgba(252, 165, 165, 0.6)'; // Semi-transparent light red
+        previewColor = 'rgba(252, 165, 165, 0.6)';
         previewText = `E${selectedElement.id}`;
       } else if (selectedSpace) {
         previewWidth = selectedSpace.width;
         previewHeight = selectedSpace.height;
-        previewColor = 'rgba(134, 239, 172, 0.6)'; // Semi-transparent green
+        previewColor = 'rgba(134, 239, 172, 0.6)';
         previewText = 'Space';
       } else {
         return;
@@ -605,7 +572,6 @@ export const MapEditorPage = () => {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Preview text
       ctx.fillStyle = selectedSpace ? '#1e40af' : '#7f1d1d';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
@@ -629,7 +595,6 @@ export const MapEditorPage = () => {
   if (!map) {
     return (
       <div className="min-h-screen bg-slate-900">
-        <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center text-white">
             <h1 className="text-2xl font-bold mb-4">Map Not Found</h1>
@@ -652,322 +617,60 @@ export const MapEditorPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      <Header />
+      {/* Fixed Toolbar - always visible */}
+      <MapEditorToolbar
+        selectedTool={selectedTool}
+        onToolSelect={setSelectedTool}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+      />
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-slate-400 hover:text-white mb-2 flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
-            </button>
-            <h1 className="text-3xl font-bold text-white">
-              Edit Map: {map.name}
-            </h1>
-            <p className="text-slate-400">
-              Size: {map.width}x{map.height} • Add elements and space portals
-            </p>
-          </div>
+      {/* Collapsible Sidebar */}
+      {isSidebarOpen && (
+        <MapEditorSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          availableElements={availableElements}
+          availableSpaces={availableSpaces}
+          selectedElement={selectedElement}
+          selectedSpace={selectedSpace}
+          setSelectedElement={setSelectedElement}
+          setSelectedSpace={setSelectedSpace}
+          map={map}
+          handleDeleteElement={handleDeleteElement}
+          handleDeleteMapSpace={handleDeleteMapSpace}
+        />
+      )}
 
-          <div className="flex gap-3">
-            <Button
-              onClick={() => navigate(`/map/${map.id}`)}
-              variant="secondary"
-            >
-              Preview Map
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-700 p-4 sticky top-4">
-              {/* Tab Navigation */}
-              <div className="flex gap-1 mb-4 bg-slate-700 p-1 rounded-lg">
-                <button
-                  onClick={() => setActiveTab('elements')}
-                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'elements'
-                      ? 'bg-purple-600 text-white'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  Elements
-                </button>
-                <button
-                  onClick={() => setActiveTab('spaces')}
-                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'spaces'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  Spaces
-                </button>
-              </div>
-
-              {/* Elements Tab */}
-              {activeTab === 'elements' && (
-                <>
-                  <h3 className="text-white font-semibold mb-3">
-                    Available Elements
-                  </h3>
-                  <p className="text-slate-400 text-sm mb-4">
-                    Click an element to select, then click on the map to place
-                    it
-                  </p>
-
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {availableElements.map((element) => (
-                      <div
-                        key={element.id}
-                        onClick={() => {
-                          setSelectedElement(element);
-                          setSelectedSpace(null);
-                        }}
-                        className={`p-3 rounded-lg cursor-pointer transition-colors border ${
-                          selectedElement?.id === element.id
-                            ? 'bg-purple-600 border-purple-500 text-white'
-                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={element.imageUrl}
-                            alt="Element"
-                            className="w-8 h-8 object-cover rounded border border-slate-500"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">
-                              Element #{element.id}
-                            </p>
-                            <p className="text-xs opacity-75">
-                              Size: {element.width}x{element.height}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Spaces Tab */}
-              {activeTab === 'spaces' && (
-                <>
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-white font-semibold">
-                      Available Spaces
-                    </h3>
-                    <button
-                      onClick={() => setShowAddSpaceModal(true)}
-                      className="p-1 text-blue-400 hover:text-blue-300"
-                      title="Refresh spaces list"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-slate-400 text-sm mb-4">
-                    Click a space to create a portal, then click on the map to
-                    place it
-                  </p>
-
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {availableSpaces.map((space) => (
-                      <div
-                        key={space.id}
-                        onClick={() => {
-                          setSelectedSpace(space);
-                          setSelectedElement(null);
-                        }}
-                        className={`p-3 rounded-lg cursor-pointer transition-colors border ${
-                          selectedSpace?.id === space.id
-                            ? 'bg-blue-600 border-blue-500 text-white'
-                            : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Users className="w-8 h-8 text-blue-400 p-1 bg-slate-800 rounded" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">{space.name}</p>
-                            <p className="text-xs opacity-75">
-                              Size: {space.dimensions}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Selected Item Info */}
-              {(selectedElement || selectedSpace) && (
-                <div className="mt-4 p-3 bg-slate-700 rounded-lg">
-                  <p className="text-white text-sm font-medium">Selected:</p>
-                  <p className="text-slate-300 text-sm">
-                    {selectedElement
-                      ? `Element #${selectedElement.id} (${selectedElement.width}x${selectedElement.height})`
-                      : `Map Space: ${selectedSpace?.name} (${selectedSpace?.width}x${selectedSpace?.height})`}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setSelectedElement(null);
-                      setSelectedSpace(null);
-                    }}
-                    className="mt-2 text-xs text-slate-400 hover:text-white"
-                  >
-                    Click to deselect
-                  </button>
-                </div>
-              )}
-
-              {/* Placed Elements List */}
-              {map.elements && map.elements.length > 0 && (
-                <div className="mt-4 p-3 bg-slate-700 rounded-lg">
-                  <h3 className="text-white font-semibold mb-3">
-                    Placed Elements
-                  </h3>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {map.elements.map((element) => (
-                      <div
-                        key={element.id}
-                        className="flex justify-between items-center p-2 rounded bg-slate-600/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={element.element.imageUrl}
-                            alt="Element"
-                            className="w-6 h-6 object-cover rounded border border-slate-500"
-                          />
-                          <span className="text-white text-sm">
-                            Element at ({element.x}, {element.y})
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteElement(element.id)}
-                          className="text-red-400 hover:text-red-300 p-1"
-                          title="Delete Element"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Placed Map Spaces List */}
-              {map.mapSpaces && map.mapSpaces.length > 0 && (
-                <div className="mt-4 p-3 bg-slate-700 rounded-lg">
-                  <h3 className="text-white font-semibold mb-3">
-                    Placed Space Portals
-                  </h3>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {map.mapSpaces.map((mapSpace) => (
-                      <div
-                        key={mapSpace.id}
-                        className="flex justify-between items-center p-2 rounded bg-slate-600/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Users className="w-6 h-6 text-blue-400 p-1 bg-slate-800 rounded" />
-                          <span className="text-white text-sm">
-                            {mapSpace.spaceName} at ({mapSpace.x}, {mapSpace.y})
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteMapSpace(mapSpace.id)}
-                          className="text-red-400 hover:text-red-300 p-1"
-                          title="Remove Space Portal"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+      {/* Main content area with proper margins */}
+      <div
+        className="transition-all duration-300"
+        style={{
+          marginLeft: isSidebarOpen ? '368px' : '48px', // 320px sidebar + 48px toolbar OR just 48px toolbar
+        }}
+      >
+        <div className="w-full h-full p-4">
+          {/* Header removed per request */}
 
           {/* Canvas Area */}
-          <div className="lg:col-span-3">
-            <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-700 p-4">
-              <div className="mb-4">
-                <h3 className="text-white font-semibold">Map Canvas</h3>
-                <p className="text-slate-400 text-sm">
-                  {selectedElement &&
-                    'Click on the map to place the selected element'}
-                  {selectedSpace && 'Click on the map to place a space portal'}
-                  {!selectedElement &&
-                    !selectedSpace &&
-                    'Select an element or space from the sidebar to start editing'}
-                </p>
-              </div>
-
-              {/* Canvas Container */}
-              <div className="overflow-auto border border-slate-600 rounded-lg bg-slate-900 max-h-[600px]">
-                <canvas
-                  ref={canvasRef}
-                  width={map.width * CELL_SIZE}
-                  height={map.height * CELL_SIZE}
-                  onClick={handleCanvasClick}
-                  onMouseMove={handleCanvasMouseMove}
-                  className="block cursor-crosshair"
-                  style={{
-                    imageRendering: 'pixelated',
-                    cursor:
-                      selectedElement || selectedSpace
-                        ? 'crosshair'
-                        : 'default',
-                  }}
-                />
-              </div>
-
-              {/* Instructions */}
-              <div className="mt-4 text-sm text-slate-400">
-                <p>• Click the red × button on elements to delete them</p>
-                <p>• Elements are obstacles that block player movement</p>
-                <p>
-                  • Space portals (blue) will allow players to travel between
-                  maps and spaces
-                </p>
-              </div>
-            </div>
+          {/* Canvas Container */}
+          <div className="w-full h-full border border-slate-600 rounded-lg bg-slate-900 overflow-auto">
+            <canvas
+              ref={canvasRef}
+              width={1025}
+              height={550}
+              onClick={handleCanvasClick}
+              onMouseMove={handleCanvasMouseMove}
+              className="block cursor-crosshair w-full h-full"
+              style={{
+                imageRendering: 'pixelated',
+                cursor:
+                  selectedElement || selectedSpace ? 'crosshair' : 'default',
+              }}
+            />
           </div>
         </div>
       </div>
-
-      {/* Add Space Portal Modal */}
-      {showAddSpaceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
-          <div className="bg-slate-800 rounded-xl max-w-md w-full p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-white mb-4">
-              Space Portals
-            </h3>
-            <p className="text-slate-300 mb-4">
-              Space portals allow players to travel from this map to specific
-              spaces. Select a space from the sidebar and click on the map to
-              place a portal.
-            </p>
-            <p className="text-slate-400 text-sm mb-6">
-              Note: Portal functionality will be fully implemented when portal
-              elements are added to the database schema.
-            </p>
-            <button
-              onClick={() => setShowAddSpaceModal(false)}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
