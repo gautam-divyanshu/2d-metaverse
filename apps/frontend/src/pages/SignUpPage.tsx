@@ -35,7 +35,9 @@ export const SignUpPage = () => {
   useEffect(() => {
     const fetchAvatars = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/v1/avatars');
+        const response = await fetch(
+          'http://localhost:3000/api/v1/maps/avatars'
+        );
         const data = await response.json();
         if (response.ok) {
           setAvatars(data.avatars);
@@ -72,7 +74,7 @@ export const SignUpPage = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/signup', {
+      const response = await fetch('http://localhost:3000/api/v1/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +92,7 @@ export const SignUpPage = () => {
       if (response.ok) {
         // Auto sign-in after successful signup
         const signinResponse = await fetch(
-          'http://localhost:3000/api/v1/auth/signup',
+          'http://localhost:3000/api/v1/auth/signin',
           {
             method: 'POST',
             headers: {
@@ -109,7 +111,12 @@ export const SignUpPage = () => {
           localStorage.setItem('token', signinData.token);
           localStorage.setItem(
             'user',
-            JSON.stringify(signinData.user || { username: formData.username })
+            JSON.stringify({
+              id: signinData.userId,
+              username: formData.username,
+              role: signinData.role,
+              avatarId: signinData.avatarId,
+            })
           );
           navigate('/dashboard');
         } else {

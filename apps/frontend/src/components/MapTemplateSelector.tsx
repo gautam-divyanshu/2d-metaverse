@@ -40,12 +40,15 @@ export const MapTemplateSelector: React.FC<MapTemplateSelectorProps> = ({
 
   const fetchTemplates = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/v1/templates', {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        'http://localhost:3000/api/v1/maps/templates',
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();

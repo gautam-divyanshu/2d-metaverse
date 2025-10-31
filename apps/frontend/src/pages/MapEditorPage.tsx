@@ -106,7 +106,7 @@ export const MapEditorPage = () => {
   const fetchMapData = async () => {
     try {
       const response = await fetch(
-        `http://localhost:3000/api/v1/map/${mapId}/edit`,
+        `http://localhost:3000/api/v1/maps/map/${mapId}/edit`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -130,11 +130,14 @@ export const MapEditorPage = () => {
 
   const fetchAvailableElements = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/v1/elements', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        'http://localhost:3000/api/v1/maps/elements',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();

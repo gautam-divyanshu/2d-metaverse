@@ -235,7 +235,7 @@ export const NewDashboardPage = () => {
       try {
         // Use the access code endpoint to find the map
         const response = await fetch(
-          `http://localhost:3000/api/v1/map/code/${enterCode.trim()}`,
+          `http://localhost:3000/api/v1/maps/map/code/${enterCode.trim()}`,
           {
             headers: {
               'Content-Type': 'application/json',

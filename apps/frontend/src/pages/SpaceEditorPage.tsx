@@ -42,12 +42,15 @@ export const SpaceEditorPage = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   const [space, setSpace] = useState<SpaceData | null>(null);
   const [availableElements, setAvailableElements] = useState<Element[]>([]);
   const [selectedElement, setSelectedElement] = useState<Element | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [mousePosition, setMousePosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchSpaceData();
@@ -62,11 +65,14 @@ export const SpaceEditorPage = () => {
 
   const fetchSpaceData = async () => {
     try {
-      const response = await fetch(`http://localhost:3000/api/v1/space/${spaceId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        `http://localhost:3000/api/v1/space/${spaceId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -81,12 +87,15 @@ export const SpaceEditorPage = () => {
 
   const fetchAvailableElements = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/v1/elements', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        'http://localhost:3000/api/v1/maps/elements',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
-      
+      );
+
       if (response.ok) {
         const data = await response.json();
         setAvailableElements(data.elements);
@@ -118,7 +127,7 @@ export const SpaceEditorPage = () => {
     // Calculate coordinates accounting for scroll
     const rawX = e.clientX - rect.left + scrollLeft;
     const rawY = e.clientY - rect.top + scrollTop;
-    
+
     // Calculate grid position (center the element on click)
     let x = Math.floor(rawX / CELL_SIZE);
     let y = Math.floor(rawY / CELL_SIZE);
@@ -130,18 +139,24 @@ export const SpaceEditorPage = () => {
     // Validate bounds (ensure the entire element fits within the space)
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    if (x + selectedElement.width > space.width) x = space.width - selectedElement.width;
-    if (y + selectedElement.height > space.height) y = space.height - selectedElement.height;
+    if (x + selectedElement.width > space.width)
+      x = space.width - selectedElement.width;
+    if (y + selectedElement.height > space.height)
+      y = space.height - selectedElement.height;
 
     // Check if this position would cause overlap with existing elements
-    const wouldOverlap = space.elements.some(existingElement => {
+    const wouldOverlap = space.elements.some((existingElement) => {
       const existingEndX = existingElement.x + existingElement.element.width;
       const existingEndY = existingElement.y + existingElement.element.height;
       const newEndX = x + selectedElement.width;
       const newEndY = y + selectedElement.height;
 
-      return !(x >= existingEndX || newEndX <= existingElement.x || 
-               y >= existingEndY || newEndY <= existingElement.y);
+      return !(
+        x >= existingEndX ||
+        newEndX <= existingElement.x ||
+        y >= existingEndY ||
+        newEndY <= existingElement.y
+      );
     });
 
     if (wouldOverlap) {
@@ -150,23 +165,28 @@ export const SpaceEditorPage = () => {
       return;
     }
 
-    console.log(`Placing element ${selectedElement.id} (${selectedElement.width}x${selectedElement.height}) at (${x}, ${y})`);
+    console.log(
+      `Placing element ${selectedElement.id} (${selectedElement.width}x${selectedElement.height}) at (${x}, ${y})`
+    );
 
     // Add element to space
     try {
-      const response = await fetch('http://localhost:3000/api/v1/space/element', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          spaceId: spaceId!,
-          elementId: selectedElement.id.toString(),
-          x,
-          y
-        })
-      });
+      const response = await fetch(
+        'http://localhost:3000/api/v1/space/element',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            spaceId: spaceId!,
+            elementId: selectedElement.id.toString(),
+            x,
+            y,
+          }),
+        }
+      );
 
       if (response.ok) {
         console.log('Element placed successfully');
@@ -188,14 +208,17 @@ export const SpaceEditorPage = () => {
     if (!confirm('Are you sure you want to delete this element?')) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/space/element', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ id: elementId.toString() })
-      });
+      const response = await fetch(
+        'http://localhost:3000/api/v1/space/element',
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ id: elementId.toString() }),
+        }
+      );
 
       if (response.ok) {
         fetchSpaceData(); // Refresh space data
@@ -254,7 +277,7 @@ export const SpaceEditorPage = () => {
     if (selectedElement && mousePosition) {
       let previewX = Math.floor(mousePosition.x / CELL_SIZE);
       let previewY = Math.floor(mousePosition.y / CELL_SIZE);
-      
+
       // Center the element around the cursor
       previewX = previewX - Math.floor(selectedElement.width / 2);
       previewY = previewY - Math.floor(selectedElement.height / 2);
@@ -262,29 +285,37 @@ export const SpaceEditorPage = () => {
       // Validate bounds
       if (previewX < 0) previewX = 0;
       if (previewY < 0) previewY = 0;
-      if (previewX + selectedElement.width > space.width) previewX = space.width - selectedElement.width;
-      if (previewY + selectedElement.height > space.height) previewY = space.height - selectedElement.height;
+      if (previewX + selectedElement.width > space.width)
+        previewX = space.width - selectedElement.width;
+      if (previewY + selectedElement.height > space.height)
+        previewY = space.height - selectedElement.height;
 
       // Check if this position would cause overlap
-      const wouldOverlap = space.elements.some(existingElement => {
+      const wouldOverlap = space.elements.some((existingElement) => {
         const existingEndX = existingElement.x + existingElement.element.width;
         const existingEndY = existingElement.y + existingElement.element.height;
         const newEndX = previewX + selectedElement.width;
         const newEndY = previewY + selectedElement.height;
 
-        return !(previewX >= existingEndX || newEndX <= existingElement.x || 
-                 previewY >= existingEndY || newEndY <= existingElement.y);
+        return !(
+          previewX >= existingEndX ||
+          newEndX <= existingElement.x ||
+          previewY >= existingEndY ||
+          newEndY <= existingElement.y
+        );
       });
 
       // Draw preview with appropriate color
-      ctx.fillStyle = wouldOverlap ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.5)';
+      ctx.fillStyle = wouldOverlap
+        ? 'rgba(239, 68, 68, 0.5)'
+        : 'rgba(16, 185, 129, 0.5)';
       ctx.fillRect(
         previewX * CELL_SIZE,
         previewY * CELL_SIZE,
         selectedElement.width * CELL_SIZE,
         selectedElement.height * CELL_SIZE
       );
-      
+
       ctx.strokeStyle = wouldOverlap ? '#ef4444' : '#10b981';
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
@@ -347,7 +378,7 @@ export const SpaceEditorPage = () => {
   return (
     <div className="min-h-screen bg-slate-900">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -359,12 +390,21 @@ export const SpaceEditorPage = () => {
               <ArrowLeft className="w-4 h-4" />
               Back to Dashboard
             </button>
-            <h1 className="text-3xl font-bold text-white">Edit: {space.name}</h1>
+            <h1 className="text-3xl font-bold text-white">
+              Edit: {space.name}
+            </h1>
             <div className="text-slate-400">
               {selectedElement ? (
                 <div>
-                  <p>Selected: Element #{selectedElement.id} ({selectedElement.width}x{selectedElement.height}) - {selectedElement.isStatic ? 'Static' : 'Walkable'}</p>
-                  <p className="text-sm">Click on canvas to place. Element will be centered on your click.</p>
+                  <p>
+                    Selected: Element #{selectedElement.id} (
+                    {selectedElement.width}x{selectedElement.height}) -{' '}
+                    {selectedElement.isStatic ? 'Static' : 'Walkable'}
+                  </p>
+                  <p className="text-sm">
+                    Click on canvas to place. Element will be centered on your
+                    click.
+                  </p>
                 </div>
               ) : (
                 <p>Select an element from the palette to place it</p>
@@ -393,7 +433,8 @@ export const SpaceEditorPage = () => {
                       Element #{element.id}
                     </div>
                     <div className="text-slate-300 text-sm">
-                      {element.width}x{element.height} • {element.isStatic ? 'Static' : 'Walkable'}
+                      {element.width}x{element.height} •{' '}
+                      {element.isStatic ? 'Static' : 'Walkable'}
                     </div>
                   </button>
                 ))}
@@ -402,7 +443,9 @@ export const SpaceEditorPage = () => {
 
             {/* Placed Elements List */}
             <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl p-4 border border-slate-700 mt-4">
-              <h2 className="text-xl font-bold text-white mb-4">Placed Elements</h2>
+              <h2 className="text-xl font-bold text-white mb-4">
+                Placed Elements
+              </h2>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {space.elements.map((element) => (
                   <div
@@ -440,10 +483,14 @@ export const SpaceEditorPage = () => {
                   onClick={handleCanvasClick}
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
-                  className={selectedElement ? "cursor-crosshair block" : "cursor-default block"}
+                  className={
+                    selectedElement
+                      ? 'cursor-crosshair block'
+                      : 'cursor-default block'
+                  }
                 />
               </div>
-              
+
               {/* Legend */}
               <div className="mt-4 flex justify-center gap-6 text-white text-sm">
                 <div className="flex items-center gap-2">

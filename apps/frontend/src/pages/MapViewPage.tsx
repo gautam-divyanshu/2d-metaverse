@@ -142,7 +142,7 @@ export const MapViewPage = () => {
       console.log('Token:', token);
 
       const response = await fetch(
-        `http://localhost:3000/api/v1/map/${mapId}`,
+        `http://localhost:3000/api/v1/maps/map/${mapId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
