@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface MapSpace {
   id: number;
@@ -17,6 +18,24 @@ interface MapCardProps {
 }
 
 export const MapCard: React.FC<MapCardProps> = ({ map, onClick }) => {
+  const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   return (
     <div
       className="group cursor-pointer"
@@ -69,15 +88,66 @@ export const MapCard: React.FC<MapCardProps> = ({ map, onClick }) => {
         <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
           {map.name}
         </h3>
-        <button
-          className="p-1 hover:bg-gray-100 rounded transition-colors ml-2 flex-shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log('More options for', map.name);
-          }}
-        >
-          <MoreHorizontal className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-        </button>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            className="p-1 hover:bg-gray-100 rounded transition-colors ml-2 flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDropdown(!showDropdown);
+            }}
+          >
+            <MoreHorizontal className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+          </button>
+
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[160px]">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const mapUrl = `${window.location.origin}/map/${map.id}`;
+                  navigator.clipboard.writeText(mapUrl);
+                  alert('Map URL copied to clipboard!');
+                  setShowDropdown(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                📋 Copy URL
+              </button>
+              {map.isOwner && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/map/${map.id}/edit`);
+                      setShowDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    ✏️ Edit Map
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (
+                        confirm(
+                          `Are you sure you want to delete "${map.name}"? This action cannot be undone.`
+                        )
+                      ) {
+                        // TODO: Implement delete functionality
+                        alert('Delete functionality coming soon!');
+                      }
+                      setShowDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    🗑️ Delete Map
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
