@@ -30,12 +30,9 @@ spaceRouter.post('/', userMiddleware, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error creating space:', error);
-    res
-      .status(400)
-      .json({
-        message:
-          error instanceof Error ? error.message : 'Internal server error',
-      });
+    res.status(400).json({
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 });
 
@@ -54,12 +51,10 @@ spaceRouter.delete('/element', userMiddleware, async (req, res) => {
     if (error instanceof Error && error.message === 'Unauthorized') {
       res.status(403).json({ message: 'Unauthorized' });
     } else {
-      res
-        .status(400)
-        .json({
-          message:
-            error instanceof Error ? error.message : 'Internal server error',
-        });
+      res.status(400).json({
+        message:
+          error instanceof Error ? error.message : 'Internal server error',
+      });
     }
   }
 });
@@ -73,12 +68,10 @@ spaceRouter.delete('/:spaceId', userMiddleware, async (req, res) => {
     if (error instanceof Error && error.message === 'Unauthorized') {
       res.status(403).json({ message: 'Unauthorized' });
     } else {
-      res
-        .status(400)
-        .json({
-          message:
-            error instanceof Error ? error.message : 'Internal server error',
-        });
+      res.status(400).json({
+        message:
+          error instanceof Error ? error.message : 'Internal server error',
+      });
     }
   }
 });
@@ -115,12 +108,9 @@ spaceRouter.post('/element', userMiddleware, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error adding element to space:', error);
-    res
-      .status(400)
-      .json({
-        message:
-          error instanceof Error ? error.message : 'Internal server error',
-      });
+    res.status(400).json({
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 });
 
@@ -130,11 +120,8 @@ spaceRouter.get('/:spaceId', userMiddleware, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error getting space:', error);
-    res
-      .status(400)
-      .json({
-        message:
-          error instanceof Error ? error.message : 'Internal server error',
-      });
+    res.status(400).json({
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
   }
 });
