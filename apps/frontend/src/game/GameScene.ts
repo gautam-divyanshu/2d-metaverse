@@ -317,6 +317,19 @@ export class GameScene extends Phaser.Scene {
     // Input
     this.cursors = this.input.keyboard!.createCursorKeys();
 
+    // Set up mouse wheel zoom (like WorkAdventure)
+    this.input.on(
+      'wheel',
+      (
+        pointer: Phaser.Input.Pointer,
+        gameObjects: any,
+        deltaX: number,
+        deltaY: number
+      ) => {
+        this.handleMouseWheel(deltaY);
+      }
+    );
+
     // Set up mouse/touch drag for camera panning
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.leftButtonDown()) {
@@ -589,5 +602,26 @@ export class GameScene extends Phaser.Scene {
       console.log(`Other player ${userId} removed`);
     }
     this.playersPositionInterpolator.removePlayer(parseInt(userId));
+  }
+
+  handleMouseWheel(deltaY: number) {
+    // WorkAdventure zoom implementation
+    // Calculate zoom factor from mouse wheel delta
+    let zoomFactor = Math.exp((-deltaY * Math.log(2)) / 100);
+
+    // Clamp to prevent extreme zooming
+    zoomFactor = Math.max(0.5, Math.min(2, zoomFactor));
+
+    // Get current zoom
+    const currentZoom = this.cameras.main.zoom;
+    const newZoom = currentZoom * zoomFactor;
+
+    // Apply limits (0.5x to 3x like WorkAdventure)
+    const clampedZoom = Math.max(0.5, Math.min(3, newZoom));
+
+    // Smooth zoom transition
+    this.cameras.main.zoomTo(clampedZoom, 100); // 100ms smooth zoom
+
+    console.log(`Zoom: ${currentZoom.toFixed(2)} -> ${clampedZoom.toFixed(2)}`);
   }
 }
