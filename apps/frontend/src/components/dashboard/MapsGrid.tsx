@@ -28,10 +28,10 @@ export const MapsGrid: React.FC<MapsGridProps> = ({
         {[...Array(8)].map((_, i) => (
           <div key={i} className="animate-pulse">
             <div
-              className="bg-gray-300 rounded-2xl mb-3"
+              className="bg-slate-700 rounded-2xl mb-3"
               style={{ aspectRatio: '16 / 9' }}
             ></div>
-            <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+            <div className="h-4 bg-slate-700 rounded w-3/4"></div>
           </div>
         ))}
       </div>
@@ -41,7 +41,7 @@ export const MapsGrid: React.FC<MapsGridProps> = ({
   if (maps.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center">
-        <div className="text-center text-gray-500">
+        <div className="text-center text-slate-400">
           <p className="text-lg">No maps yet</p>
         </div>
       </div>

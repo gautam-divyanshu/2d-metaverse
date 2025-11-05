@@ -85,23 +85,23 @@ export const MapCard: React.FC<MapCardProps> = ({ map, onClick }) => {
 
       {/* Map Name with More Options */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
+        <h3 className="text-sm font-medium text-white truncate flex-1">
           {map.name}
         </h3>
         <div className="relative" ref={dropdownRef}>
           <button
-            className="p-1 hover:bg-gray-100 rounded transition-colors ml-2 flex-shrink-0"
+            className="p-1 hover:bg-slate-700 rounded transition-colors ml-2 flex-shrink-0"
             onClick={(e) => {
               e.stopPropagation();
               setShowDropdown(!showDropdown);
             }}
           >
-            <MoreHorizontal className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+            <MoreHorizontal className="w-4 h-4 text-slate-400 hover:text-slate-200" />
           </button>
 
           {/* Dropdown Menu */}
           {showDropdown && (
-            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[160px]">
+            <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 z-50 min-w-[160px]">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -110,7 +110,7 @@ export const MapCard: React.FC<MapCardProps> = ({ map, onClick }) => {
                   alert('Map URL copied to clipboard!');
                   setShowDropdown(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
               >
                 📋 Copy URL
               </button>
@@ -122,7 +122,7 @@ export const MapCard: React.FC<MapCardProps> = ({ map, onClick }) => {
                       navigate(`/map/${map.id}/edit`);
                       setShowDropdown(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-slate-700 transition-colors"
                   >
                     ✏️ Edit Map
                   </button>
@@ -139,7 +139,7 @@ export const MapCard: React.FC<MapCardProps> = ({ map, onClick }) => {
                       }
                       setShowDropdown(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-900/20 transition-colors"
                   >
                     🗑️ Delete Map
                   </button>

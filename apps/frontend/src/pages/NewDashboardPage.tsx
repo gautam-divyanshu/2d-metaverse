@@ -272,14 +272,9 @@ export const NewDashboardPage = () => {
     }
   };
 
-  const handleMapClick = (mapId: number, isOwner: boolean) => {
-    if (isOwner) {
-      // Owner can edit the map
-      navigate(`/map/${mapId}/edit`);
-    } else {
-      // Non-owner can only view/join the map
-      navigate(`/map/${mapId}`);
-    }
+  const handleMapClick = (mapId: number) => {
+    // Everyone (including owners) goes to play/view mode when clicking a map
+    navigate(`/map/${mapId}`);
   };
 
   if (!isAuthenticated) {
@@ -287,7 +282,7 @@ export const NewDashboardPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-900">
       <Header />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
@@ -299,8 +294,8 @@ export const NewDashboardPage = () => {
               onClick={() => setActiveTab('recent')}
               className={`pb-2 text-lg font-medium border-b-2 transition-colors ${
                 activeTab === 'recent'
-                  ? 'text-gray-900 border-gray-900'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
+                  ? 'text-white border-blue-500'
+                  : 'text-slate-400 border-transparent hover:text-slate-200'
               }`}
             >
               Recent
@@ -309,8 +304,8 @@ export const NewDashboardPage = () => {
               onClick={() => setActiveTab('my-maps')}
               className={`pb-2 text-lg font-medium border-b-2 transition-colors ${
                 activeTab === 'my-maps'
-                  ? 'text-gray-900 border-gray-900'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
+                  ? 'text-white border-blue-500'
+                  : 'text-slate-400 border-transparent hover:text-slate-200'
               }`}
             >
               My Maps
@@ -321,7 +316,7 @@ export const NewDashboardPage = () => {
           <div className="flex gap-4">
             <button
               onClick={() => setShowEnterCodeModal(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
+              className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-800 transition-colors text-white"
             >
               <Key className="w-4 h-4" />
               Enter with Code
@@ -349,9 +344,9 @@ export const NewDashboardPage = () => {
                 onMapClick={handleMapClick}
               />
             ) : (
-              /* Empty State - Clean design matching your image */
+              /* Empty State - Dark mode */
               <div className="h-64 flex items-center justify-center">
-                <div className="text-center text-gray-500">
+                <div className="text-center text-slate-400">
                   <p className="text-lg">
                     {activeTab === 'recent' ? 'No recent maps' : 'No maps yet'}
                   </p>
