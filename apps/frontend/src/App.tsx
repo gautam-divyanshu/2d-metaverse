@@ -7,7 +7,7 @@ import { SignUpPage } from './pages/SignUpPage';
 import { NewDashboardPage } from './pages/NewDashboardPage';
 import { SpaceViewPage } from './pages/SpaceViewPage';
 import { SpaceEditorPage } from './pages/SpaceEditorPage';
-import { MapViewPage } from './pages/MapViewPage';
+import { MapViewPhaser } from './pages/MapViewPhaser';
 import { MapEditorPage } from './pages/MapEditorPage';
 import { AdminPanelPage } from './pages/AdminPanelPage';
 
@@ -52,7 +52,7 @@ function App() {
               path="/map/:mapId"
               element={
                 <ProtectedRoute>
-                  <MapViewPage />
+                  <MapViewPhaser />
                 </ProtectedRoute>
               }
             />

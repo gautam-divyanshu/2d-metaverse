@@ -422,15 +422,14 @@ export class User {
     isTeleport: boolean = false
   ): Promise<boolean> {
     try {
-      // 1. Movement validation: allow teleport or single step movement
-      if (
-        !isTeleport &&
-        !(
-          (xDisplacement == 1 && yDisplacement == 0) ||
-          (xDisplacement == 0 && yDisplacement == 1)
-        )
-      ) {
-        return false;
+      // 1. Movement validation: allow teleport or reasonable movement distances
+      // With Phaser physics at 160 pixels/second and CELL_SIZE=32, players can move ~5 cells/second
+      // Allow up to 10 cells per update to accommodate network latency and frame timing
+      if (!isTeleport) {
+        const maxDistance = 10;
+        if (xDisplacement > maxDistance || yDisplacement > maxDistance) {
+          return false;
+        }
       }
 
       // 2. Quick check: collision with other players (no DB query needed)
