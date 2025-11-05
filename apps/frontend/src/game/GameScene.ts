@@ -239,6 +239,9 @@ export class GameScene extends Phaser.Scene {
     );
     collisionsLayer?.setCollisionByProperty({ collides: true });
 
+    // CRITICAL: Hide the collisions layer - it's only for collision detection, not visual display
+    collisionsLayer?.setVisible(false);
+
     // Set depths for map layers - using tile depth like WorkAdventure
     map.getLayer('floor/floor1')?.tilemapLayer?.setDepth(0);
     map.getLayer('floor/floor2')?.tilemapLayer?.setDepth(0);
@@ -472,21 +475,24 @@ export class GameScene extends Phaser.Scene {
     sprite.setScrollFactor(1);
     sprite.setOrigin(0.5, 0.5);
 
-    // Add name label
+    // Add name label with proper font settings
     const nameText = this.add.text(
       worldX,
       worldY - 20,
       `User ${userIdString}`,
       {
+        fontFamily: 'Arial, sans-serif',
         fontSize: '12px',
         color: '#ffffff',
-        backgroundColor: '#000000aa',
-        padding: { x: 4, y: 2 },
+        backgroundColor: '#000000',
+        padding: { x: 6, y: 3 },
+        resolution: 2, // Higher resolution for crisp text
       }
     );
     nameText.setOrigin(0.5, 0.5);
     nameText.setDepth(1000);
     nameText.setScrollFactor(1);
+    nameText.setAlpha(0.95);
 
     sprite.setData('nameText', nameText);
     this.otherPlayers.set(userIdString, sprite);
