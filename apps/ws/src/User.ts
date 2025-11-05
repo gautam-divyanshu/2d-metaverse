@@ -192,9 +192,13 @@ export class User {
               }
             }
 
-            // Spawn at a safe position within the map bounds
-            this.x = Math.floor(Math.random() * map.width);
-            this.y = Math.floor(Math.random() * map.height);
+            // Spawn at a safe default position (center-left area, usually walkable)
+            // TODO: Implement proper spawn point selection:
+            // - Option 1: Let users click on chairs/desks to select their spawn
+            // - Option 2: Define spawn points in map metadata (Tiled map properties)
+            // - Option 3: Parse Tiled map collision layer to find walkable tiles
+            this.x = 10;
+            this.y = 10;
 
             // Fetch recent messages (last 50) for this map
             const recentMessages = await client.message.findMany({
