@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Header } from '../components/Header';
-import { ChatPanel } from '../components/map/ChatPanel';
+import { MapViewToolbar } from '../components/map/MapViewToolbar';
+import { MapViewSidebar } from '../components/map/MapViewSidebar';
 import Phaser from 'phaser';
-import { ArrowLeft } from 'lucide-react';
 import { GameScene } from '../game/GameScene';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { User, CurrentUser, ChatMessage, MapData } from '../game/types';
@@ -12,7 +11,6 @@ import { User, CurrentUser, ChatMessage, MapData } from '../game/types';
 export const MapViewPhaser = () => {
   const { mapId } = useParams<{ mapId: string }>();
   const { token, user } = useAuth();
-  const navigate = useNavigate();
   const gameRef = useRef<HTMLDivElement>(null);
   const gameInstance = useRef<Phaser.Game | null>(null);
   const sceneRef = useRef<GameScene | null>(null);
@@ -25,8 +23,7 @@ export const MapViewPhaser = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState<string>('');
   const [gameReady, setGameReady] = useState(false);
-
-  const isOwner = map && user && map.ownerId === parseInt(user.id);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Fetch map data
   useEffect(() => {
@@ -90,7 +87,7 @@ export const MapViewPhaser = () => {
       });
 
       const handleResize = () => {
-        if (gameInstance.current) {
+        if (gameInstance.current && container) {
           gameInstance.current.scale.resize(
             container.clientWidth,
             container.clientHeight
@@ -105,7 +102,7 @@ export const MapViewPhaser = () => {
     }
   }, [map, user]);
 
-  // WebSocket connection - only after game is ready
+  // WebSocket connection
   const wsRef = useWebSocket({
     mapId: mapId!,
     token,
@@ -119,7 +116,6 @@ export const MapViewPhaser = () => {
 
   const handleMovement = (x: number, y: number) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log(`Sending movement to (${x}, ${y})`);
       wsRef.current.send(
         JSON.stringify({
           type: 'move',
@@ -130,8 +126,6 @@ export const MapViewPhaser = () => {
           },
         })
       );
-    } else {
-      console.warn('Cannot send movement - WebSocket not open');
     }
   };
 
@@ -166,20 +160,10 @@ export const MapViewPhaser = () => {
 
   if (error || !map) {
     return (
-      <div className="min-h-screen bg-slate-900">
-        <Header />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-white">
-            <h1 className="text-2xl font-bold mb-4">Error</h1>
-            <p className="mb-4">{error || 'Map not found'}</p>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-blue-400 hover:text-blue-300"
-            >
-              <ArrowLeft className="inline mr-2" />
-              Back to Dashboard
-            </button>
-          </div>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <h1 className="text-2xl font-bold mb-4">Error</h1>
+          <p className="mb-4">{error || 'Map not found'}</p>
         </div>
       </div>
     );
@@ -187,67 +171,44 @@ export const MapViewPhaser = () => {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      <Header />
+      {/* Vertical Toolbar - Left edge */}
+      <MapViewToolbar
+        isChatOpen={isSidebarOpen}
+        onToggleChat={() => setIsSidebarOpen(!isSidebarOpen)}
+        usersOnline={users.size + (currentUser ? 1 : 0)}
+      />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-slate-400 hover:text-white mb-2 flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
-            </button>
-            <h1 className="text-3xl font-bold text-white">{map.name}</h1>
-            <p className="text-slate-400 text-sm">Created by {map.owner}</p>
-          </div>
+      {/* Chat Sidebar - Slides in from left */}
+      {isSidebarOpen && (
+        <MapViewSidebar
+          currentUser={currentUser}
+          users={users}
+          chatMessages={chatMessages}
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          onSendMessage={sendChatMessage}
+        />
+      )}
 
-          <div className="flex items-center gap-4">
-            {isOwner && (
-              <button
-                onClick={() => navigate(`/map/${map.id}/edit`)}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Edit Map
-              </button>
-            )}
-            <div className="text-white">
-              <p className="text-sm text-slate-400">Users online</p>
-              <p className="text-2xl font-bold">
-                {users.size + (currentUser ? 1 : 0)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl p-4 border border-slate-700">
-          <div className="flex">
-            <div className="flex-[0.7]">
-              <div
-                ref={gameRef}
-                className="w-full h-[60vh] bg-black rounded-lg cursor-grab active:cursor-grabbing"
-                onClick={() => {
-                  if (gameInstance.current?.canvas) {
-                    gameInstance.current.canvas.focus();
-                  }
-                }}
-                tabIndex={0}
-              ></div>
-            </div>
-
-            {currentUser && (
-              <ChatPanel
-                currentUser={currentUser}
-                users={users}
-                chatMessages={chatMessages}
-                newMessage={newMessage}
-                setNewMessage={setNewMessage}
-                onSendMessage={sendChatMessage}
-              />
-            )}
-          </div>
-        </div>
+      {/* Main Phaser Game Area - Full screen with margin for toolbar/sidebar */}
+      <div
+        className="transition-all duration-300"
+        style={{
+          marginLeft: isSidebarOpen ? '368px' : '48px', // 48px toolbar + 320px sidebar OR just toolbar
+          height: '100vh',
+          width: isSidebarOpen ? 'calc(100vw - 368px)' : 'calc(100vw - 48px)',
+        }}
+      >
+        <div
+          ref={gameRef}
+          className="w-full h-full bg-black"
+          onClick={() => {
+            if (gameInstance.current?.canvas) {
+              gameInstance.current.canvas.focus();
+            }
+          }}
+          tabIndex={0}
+        />
       </div>
     </div>
   );
