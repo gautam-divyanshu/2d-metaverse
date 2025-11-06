@@ -19,8 +19,13 @@ export class GameScene extends Phaser.Scene {
   private lastPointerPosition: { x: number; y: number } = { x: 0, y: 0 };
   private playersPositionInterpolator = new PlayersPositionInterpolator();
   private currentTick = 0;
-  private lastSentPosition: { x: number; y: number } = { x: -1, y: -1 };
-  private lastMovementSentTime = 0;
+  private lastSentTick = 0; // Track tick time of last sent position
+  private lastMovementSent: {
+    x: number;
+    y: number;
+    direction: string;
+    moving: boolean;
+  } = { x: -1, y: -1, direction: 'down', moving: false };
   private playerDirection: 'up' | 'down' | 'left' | 'right' = 'down';
 
   constructor(onMovement: (x: number, y: number) => void) {
@@ -554,21 +559,24 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    if (moved) {
-      const gridX = Math.floor(this.player.x / CELL_SIZE);
-      const gridY = Math.floor(this.player.y / CELL_SIZE);
+    // approach: Send updates on state changes OR time threshold
+    const currentState = {
+      x: Math.round(this.player.x),
+      y: Math.round(this.player.y),
+      direction: newDirection,
+      moving: moved,
+    };
 
-      // Throttle movement updates
-      const now = Date.now();
-      if (
-        (gridX !== this.lastSentPosition.x ||
-          gridY !== this.lastSentPosition.y) &&
-        now - this.lastMovementSentTime >= 50
-      ) {
-        this.lastSentPosition = { x: gridX, y: gridY };
-        this.lastMovementSentTime = now;
-        this.onMovement(gridX, gridY);
-      }
+    // Send if: player stopped, direction changed, or 200ms elapsed
+    const shouldSend =
+      (!moved && this.lastMovementSent.moving) || // Just stopped
+      (moved && newDirection !== this.lastMovementSent.direction) || // Changed direction
+      (moved && this.currentTick - this.lastSentTick >= POSITION_DELAY); // Time threshold
+
+    if (shouldSend) {
+      this.lastMovementSent = currentState;
+      this.lastSentTick = this.currentTick;
+      this.onMovement(currentState.x, currentState.y);
     }
   }
 
@@ -817,7 +825,11 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  updateOtherPlayerMovement(userId: string | number, x: number, y: number) {
+  updateOtherPlayerMovement(
+    userId: string | number,
+    pixelX: number,
+    pixelY: number
+  ) {
     const userIdString = String(userId);
     const sprite = this.otherPlayers.get(userIdString);
 
@@ -825,40 +837,28 @@ export class GameScene extends Phaser.Scene {
       console.error(
         `Cannot update movement for player ${userIdString} - sprite not found.`
       );
-      console.error(
-        `Available player keys:`,
-        Array.from(this.otherPlayers.keys())
-      );
-      console.error(
-        `Looking for key: "${userIdString}" (type: ${typeof userIdString})`
-      );
-      console.error(
-        `Available key types:`,
-        Array.from(this.otherPlayers.keys()).map((k) => typeof k)
-      );
       return;
     }
 
-    // Calculate direction based on movement
-    const currentX = Math.floor(sprite.x / CELL_SIZE);
-    const currentY = Math.floor(sprite.y / CELL_SIZE);
+    // Calculate direction based on movement (using pixels)
     let direction = sprite.getData('direction') || 'down';
 
-    if (x > currentX) direction = 'right';
-    else if (x < currentX) direction = 'left';
-    else if (y > currentY) direction = 'down';
-    else if (y < currentY) direction = 'up';
+    if (pixelX > sprite.x + 5) direction = 'right';
+    else if (pixelX < sprite.x - 5) direction = 'left';
+    else if (pixelY > sprite.y + 5) direction = 'down';
+    else if (pixelY < sprite.y - 5) direction = 'up';
 
     sprite.setData('direction', direction);
 
     console.log(
-      `Updating player ${userIdString} movement from (${Math.floor(sprite.x / CELL_SIZE)}, ${Math.floor(sprite.y / CELL_SIZE)}) to (${x}, ${y}), direction: ${direction}`
+      `Updating player ${userIdString} movement from (${Math.round(sprite.x)}, ${Math.round(sprite.y)})px to (${pixelX}, ${pixelY})px, direction: ${direction}`
     );
 
-    const startPosition = { x: sprite.x / CELL_SIZE, y: sprite.y / CELL_SIZE };
+    // Interpolate between PIXEL positions (not grid)
+    const startPosition = { x: sprite.x, y: sprite.y }; // Current pixel position
     const endPosition: HasPlayerMovedInterface = {
-      x,
-      y,
+      x: pixelX, // Target pixel position
+      y: pixelY,
       moving: true,
     };
     const playerMovement = new PlayerMovement(
@@ -879,10 +879,12 @@ export class GameScene extends Phaser.Scene {
   ) {
     const sprite = this.otherPlayers.get(userId);
     if (sprite) {
-      const worldX = moveEvent.x * CELL_SIZE;
-      const worldY = moveEvent.y * CELL_SIZE;
-      sprite.setPosition(worldX, worldY);
-      sprite.setDepth(worldY + 16);
+      // moveEvent.x and moveEvent.y are now PIXELS (not grid)
+      const pixelX = moveEvent.x;
+      const pixelY = moveEvent.y;
+
+      sprite.setPosition(pixelX, pixelY);
+      sprite.setDepth(pixelY + 16);
 
       // Update animation based on direction
       const direction = sprite.getData('direction') || 'down';
@@ -890,14 +892,14 @@ export class GameScene extends Phaser.Scene {
       if (storedTextureKey) {
         const animKey = `${storedTextureKey}_${direction}`;
         if (this.anims.exists(animKey)) {
-          sprite.play(animKey);
+          sprite.play(animKey, true); // true = ignoreIfPlaying
         }
       }
 
       const nameText = sprite.getData('nameText');
       if (nameText) {
-        nameText.setPosition(worldX, worldY - 20);
-        nameText.setDepth(worldY + 17);
+        nameText.setPosition(pixelX, pixelY - 20);
+        nameText.setDepth(pixelY + 17);
       }
     }
   }

@@ -274,15 +274,21 @@ export class User {
           }
           break;
         case 'move':
-          const moveX = parsedData.payload.x;
-          const moveY = parsedData.payload.y;
+          const pixelX = parsedData.payload.x; // Now receiving PIXELS
+          const pixelY = parsedData.payload.y;
           const isTeleport = parsedData.payload.teleport || false;
-          const xDisplacement = Math.abs(this.x - moveX);
-          const yDisplacement = Math.abs(this.y - moveY);
+
+          // Convert pixels to grid coordinates for storage and validation
+          const CELL_SIZE = 32;
+          const gridX = Math.floor(pixelX / CELL_SIZE);
+          const gridY = Math.floor(pixelY / CELL_SIZE);
+
+          const xDisplacement = Math.abs(this.x - gridX);
+          const yDisplacement = Math.abs(this.y - gridY);
 
           if (isTeleport) {
             console.log(
-              `Teleport request: ${this.userId} from (${this.x}, ${this.y}) to (${moveX}, ${moveY})`
+              `Teleport request: ${this.userId} from grid (${this.x}, ${this.y}) to grid (${gridX}, ${gridY}), pixels (${pixelX}, ${pixelY})`
             );
           }
 
@@ -292,54 +298,54 @@ export class User {
           }
 
           const isValidMove = await this.validateMovement(
-            moveX,
-            moveY,
+            gridX,
+            gridY,
             xDisplacement,
             yDisplacement,
             isTeleport
           );
 
           if (isValidMove) {
-            // Update position immediately
-            this.x = moveX;
-            this.y = moveY;
+            // Update GRID position for collision checks
+            this.x = gridX;
+            this.y = gridY;
 
             // Determine the room key for broadcasting
             const roomKey = this.spaceId
               ? `space_${this.spaceId}`
               : `map_${this.mapId}`;
 
-            // Broadcast to other users FIRST for speed
+            // Broadcast PIXEL coordinates to other users for smooth interpolation
             RoomManager.getInstance().broadcast(
               {
                 type: 'movement',
                 payload: {
                   userId: this.userId,
-                  x: this.x,
-                  y: this.y,
+                  x: pixelX, // Send pixels for smoothness
+                  y: pixelY,
                 },
               },
               this,
               roomKey
             );
 
-            // Send acknowledgment to the moving user
+            // Send acknowledgment with pixel coordinates
             this.send({
               type: 'movement-accepted',
               payload: {
-                x: this.x,
-                y: this.y,
+                x: pixelX,
+                y: pixelY,
               },
             });
             return;
           }
 
-          // Movement rejected - send current position
+          // Movement rejected - send current grid position as pixels
           this.send({
             type: 'movement-rejected',
             payload: {
-              x: this.x,
-              y: this.y,
+              x: this.x * CELL_SIZE,
+              y: this.y * CELL_SIZE,
             },
           });
           break;
