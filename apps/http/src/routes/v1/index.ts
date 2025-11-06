@@ -4,6 +4,7 @@ import { spaceRouter } from './space';
 import { adminRouter } from './admin';
 import { authRouter } from './auth';
 import { mapsRouter } from './maps';
+import { avatarRouter } from './avatar';
 import client from '@repo/db/client';
 
 export const router = Router();
@@ -27,6 +28,7 @@ router.get('/health', async (req, res) => {
 
 router.use('/auth', authRouter);
 router.use('/maps', mapsRouter);
+router.use('/avatars', avatarRouter);
 
 router.use('/user', userRouter);
 router.use('/space', spaceRouter);

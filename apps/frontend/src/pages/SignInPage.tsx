@@ -50,10 +50,10 @@ export const SignInPage = () => {
       if (response.ok) {
         // Use auth context to store token and user info
         login(data.token, {
-          id: data.userId,
-          username: formData.username,
-          role: data.role || 'user',
-          avatarId: data.avatarId,
+          id: data.user.id,
+          username: data.user.username,
+          role: data.user.role,
+          avatarId: data.user.avatar?.id,
         });
 
         // Navigate to dashboard

@@ -52,7 +52,10 @@ export function useWebSocket({
           const spawnX = message.payload.spawn.x;
           const spawnY = message.payload.spawn.y;
           sceneRef.current?.setPlayerPosition(spawnX, spawnY);
-          sceneRef.current?.setCurrentUser(message.payload.userId);
+          sceneRef.current?.setCurrentUser(
+            message.payload.userId,
+            message.payload.avatarUrl
+          );
           setCurrentUser({
             x: spawnX,
             y: spawnY,
@@ -69,8 +72,15 @@ export function useWebSocket({
                 id: userIdString,
                 x: u.x || 0,
                 y: u.y || 0,
+                avatarUrl: u.avatarUrl,
+                direction: 'down',
               });
-              sceneRef.current?.addOtherPlayer(userIdString, u.x, u.y);
+              sceneRef.current?.addOtherPlayer(
+                userIdString,
+                u.x,
+                u.y,
+                u.avatarUrl
+              );
             }
           });
           setUsers(userMap);
@@ -86,6 +96,8 @@ export function useWebSocket({
                 id: joinedUserId,
                 x: message.payload.x || 0,
                 y: message.payload.y || 0,
+                avatarUrl: message.payload.avatarUrl,
+                direction: 'down',
               });
             }
             return newUsers;
@@ -93,7 +105,8 @@ export function useWebSocket({
           sceneRef.current?.addOtherPlayer(
             joinedUserId,
             message.payload.x,
-            message.payload.y
+            message.payload.y,
+            message.payload.avatarUrl
           );
           break;
 
@@ -126,10 +139,22 @@ export function useWebSocket({
                 const newUsers = new Map(prev);
                 const user = newUsers.get(movementUserId);
                 if (user) {
+                  // Calculate direction based on movement
+                  let direction = user.direction || 'down';
+                  const deltaX = message.payload.x - user.x;
+                  const deltaY = message.payload.y - user.y;
+
+                  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    direction = deltaX > 0 ? 'right' : 'left';
+                  } else if (deltaY !== 0) {
+                    direction = deltaY > 0 ? 'down' : 'up';
+                  }
+
                   newUsers.set(movementUserId, {
                     ...user,
                     x: message.payload.x,
                     y: message.payload.y,
+                    direction: direction,
                   });
                 } else {
                   console.warn(
