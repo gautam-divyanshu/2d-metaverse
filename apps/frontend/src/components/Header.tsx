@@ -122,6 +122,15 @@ export const Header: React.FC = () => {
                     </button>
                   )}
                   <button
+                    onClick={() => {
+                      navigate('/profile');
+                      setShowDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                  >
+                    Profile
+                  </button>
+                  <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
                   >

@@ -12,6 +12,10 @@ import {
   removeElementFromMap,
   addSpaceToMap,
   removeSpaceFromMap,
+  getUserProfile,
+  updateUserPassword,
+  updateAvatarInfo,
+  deleteUserAccount,
 } from '../../services/userService';
 
 export const userRouter = Router();
@@ -201,6 +205,84 @@ userRouter.delete('/map/:mapId/space', userMiddleware, async (req, res) => {
       error.message === 'Map not found or access denied'
     ) {
       res.status(404).json({ message: 'Map not found or access denied' });
+      return;
+    }
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get user profile
+userRouter.get('/profile', userMiddleware, async (req, res) => {
+  try {
+    const result = await getUserProfile(parseInt(req.userId!));
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to fetch profile:', error);
+    if (error instanceof Error && error.message === 'User not found') {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update user password
+userRouter.put('/password', userMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      res
+        .status(400)
+        .json({ message: 'Current and new password are required' });
+      return;
+    }
+    const result = await updateUserPassword(
+      parseInt(req.userId!),
+      currentPassword,
+      newPassword
+    );
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to update password:', error);
+    if (error instanceof Error) {
+      if (error.message === 'User not found') {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+      if (error.message === 'Current password is incorrect') {
+        res.status(401).json({ message: 'Current password is incorrect' });
+        return;
+      }
+    }
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update avatar info
+userRouter.put('/avatar-info', userMiddleware, async (req, res) => {
+  try {
+    const { avatarId, avatarName } = req.body;
+    const result = await updateAvatarInfo(
+      parseInt(req.userId!),
+      avatarId,
+      avatarName
+    );
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to update avatar info:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete user account
+userRouter.delete('/account', userMiddleware, async (req, res) => {
+  try {
+    const result = await deleteUserAccount(parseInt(req.userId!));
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to delete account:', error);
+    if (error instanceof Error && error.message === 'User not found') {
+      res.status(404).json({ message: 'User not found' });
       return;
     }
     res.status(500).json({ message: 'Internal server error' });
