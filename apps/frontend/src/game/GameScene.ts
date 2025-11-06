@@ -37,17 +37,33 @@ export class GameScene extends Phaser.Scene {
     // Load Tiled map JSON
     this.load.tilemapTiledJSON('map', '/office.tmj');
 
-    // Load tileset images
-    this.load.image('WA_Special_Zones', '/tilesets/WA_Special_Zones.png');
-    this.load.image('WA_Decoration', '/tilesets/WA_Decoration.png');
-    this.load.image('WA_Miscellaneous', '/tilesets/WA_Miscellaneous.png');
-    this.load.image('WA_Other_Furniture', '/tilesets/WA_Other_Furniture.png');
-    this.load.image('WA_Room_Builder', '/tilesets/WA_Room_Builder.png');
-    this.load.image('WA_Seats', '/tilesets/WA_Seats.png');
-    this.load.image('WA_Tables', '/tilesets/WA_Tables.png');
-    this.load.image('WA_Logo_Long', '/tilesets/WA_Logo_Long.png');
-    this.load.image('WA_Exterior', '/tilesets/WA_Exterior.png');
-    this.load.image('WA_User_Interface', '/tilesets/WA_User_Interface.png');
+    // Load tileset images with proper filtering for pixel art
+    const tilesets = [
+      'WA_Special_Zones',
+      'WA_Decoration',
+      'WA_Miscellaneous',
+      'WA_Other_Furniture',
+      'WA_Room_Builder',
+      'WA_Seats',
+      'WA_Tables',
+      'WA_Logo_Long',
+      'WA_Exterior',
+      'WA_User_Interface',
+    ];
+
+    tilesets.forEach((tilesetName) => {
+      this.load.image(tilesetName, `/tilesets/${tilesetName}.png`);
+    });
+
+    // Set nearest neighbor filtering on loaded images to prevent black lines
+    this.load.on('filecomplete-image', (key: string) => {
+      if (tilesets.includes(key)) {
+        const texture = this.textures.get(key);
+        if (texture) {
+          texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+        }
+      }
+    });
 
     console.log(
       'Preload complete - avatar textures will be created in create()'
@@ -362,16 +378,56 @@ export class GameScene extends Phaser.Scene {
     collisionsLayer?.setVisible(false);
 
     // Set depths for map layers - using tile depth like WorkAdventure
-    map.getLayer('floor/floor1')?.tilemapLayer?.setDepth(0);
-    map.getLayer('floor/floor2')?.tilemapLayer?.setDepth(0);
+    // Also disable anti-aliasing for crisp rendering
+    const floor1Layer = map.getLayer('floor/floor1')?.tilemapLayer;
+    const floor2Layer = map.getLayer('floor/floor2')?.tilemapLayer;
+    const furniture1Layer = map.getLayer('furniture/furniture1')?.tilemapLayer;
+    const furniture2Layer = map.getLayer('furniture/furniture2')?.tilemapLayer;
+    const furniture3Layer = map.getLayer('furniture/furniture3')?.tilemapLayer;
+
+    floor1Layer?.setDepth(0);
+    floor2Layer?.setDepth(0);
     wallsLayer1?.setDepth(0);
     wallsLayer2?.setDepth(0);
-    map.getLayer('furniture/furniture1')?.tilemapLayer?.setDepth(0);
-    map.getLayer('furniture/furniture2')?.tilemapLayer?.setDepth(0);
-    map.getLayer('furniture/furniture3')?.tilemapLayer?.setDepth(0);
+    furniture1Layer?.setDepth(0);
+    furniture2Layer?.setDepth(0);
+    furniture3Layer?.setDepth(0);
     collisionsLayer?.setDepth(0);
     above1Layer?.setDepth(1000000);
     above2Layer?.setDepth(1000000);
+
+    // Configure tilemap layers for crisp pixel art rendering and prevent black lines
+    [
+      floor1Layer,
+      floor2Layer,
+      wallsLayer1,
+      wallsLayer2,
+      furniture1Layer,
+      furniture2Layer,
+      furniture3Layer,
+      above1Layer,
+      above2Layer,
+    ].forEach((layer) => {
+      if (layer) {
+        layer.setSkipCull(true); // Prevent culling issues
+        // Round tile positions to prevent sub-pixel rendering
+        layer.forEachTile((tile: any) => {
+          if (tile.index !== -1) {
+            tile.pixelX = Math.round(tile.pixelX);
+            tile.pixelY = Math.round(tile.pixelY);
+          }
+        });
+        // Set the layer to use nearest neighbor filtering by accessing the tileset textures
+        layer.tileset.forEach((tileset: any) => {
+          if (tileset && tileset.image) {
+            const texture = this.textures.get(tileset.image.key);
+            if (texture) {
+              texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+            }
+          }
+        });
+      }
+    });
 
     console.log(
       'Layer depths set - tiles at 0, players use Y-coordinate, overlays at 1,000,000'
@@ -421,12 +477,17 @@ export class GameScene extends Phaser.Scene {
     if (collisionsLayer)
       this.physics.add.collider(this.player, collisionsLayer);
 
-    // Camera setup with proper bounds
+    // Camera setup with proper bounds and anti-aliasing fixes
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
     this.cameras.main.setZoom(1);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(100, 100);
     this.cameras.main.setRoundPixels(true);
+
+    // Configure camera for crisp pixel art rendering and prevent black lines
+    this.cameras.main.setOrigin(0.5, 0.5);
+    // Force camera to use pixel-perfect positioning
+    this.cameras.main.useBounds = true;
 
     console.log(
       'Camera bounds set to:',
@@ -488,6 +549,10 @@ export class GameScene extends Phaser.Scene {
     if (!this.player || !this.cursors) return;
 
     this.currentTick += delta;
+
+    // Ensure pixel-perfect camera positioning to prevent black lines
+    this.cameras.main.scrollX = Math.round(this.cameras.main.scrollX);
+    this.cameras.main.scrollY = Math.round(this.cameras.main.scrollY);
 
     // Always update depth based on Y position
     this.player.setDepth(this.player.y + 16);
@@ -919,7 +984,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleMouseWheel(deltaY: number) {
-    // WorkAdventure zoom implementation
     // Calculate zoom factor from mouse wheel delta
     let zoomFactor = Math.exp((-deltaY * Math.log(2)) / 100);
 
@@ -933,9 +997,16 @@ export class GameScene extends Phaser.Scene {
     // Apply limits (0.5x to 3x like WorkAdventure)
     const clampedZoom = Math.max(0.5, Math.min(3, newZoom));
 
-    // Smooth zoom transition
-    this.cameras.main.zoomTo(clampedZoom, 100); // 100ms smooth zoom
+    // Round zoom to prevent sub-pixel rendering artifacts
+    const roundedZoom = Math.round(clampedZoom * 100) / 100;
 
-    console.log(`Zoom: ${currentZoom.toFixed(2)} -> ${clampedZoom.toFixed(2)}`);
+    // Set zoom immediately with pixel-perfect positioning
+    this.cameras.main.setZoom(roundedZoom);
+
+    // Force camera position rounding to prevent black lines
+    this.cameras.main.scrollX = Math.round(this.cameras.main.scrollX);
+    this.cameras.main.scrollY = Math.round(this.cameras.main.scrollY);
+
+    console.log(`Zoom: ${currentZoom.toFixed(2)} -> ${roundedZoom.toFixed(2)}`);
   }
 }

@@ -75,6 +75,11 @@ export const MapViewPhaser = () => {
             debug: false,
           },
         },
+        render: {
+          antialias: false,
+          pixelArt: true,
+          roundPixels: true,
+        },
         scene: new GameScene(handleMovement),
       };
 
