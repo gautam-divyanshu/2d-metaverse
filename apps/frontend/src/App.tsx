@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LandingPage } from './pages/LandingPage';
 import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
+import { AvatarSelectionPage } from './pages/AvatarSelectionPage';
 import { NewDashboardPage } from './pages/NewDashboardPage';
 import { SpaceViewPage } from './pages/SpaceViewPage';
 import { SpaceEditorPage } from './pages/SpaceEditorPage';
@@ -20,6 +21,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/avatar-selection" element={<AvatarSelectionPage />} />
 
             <Route
               path="/dashboard"

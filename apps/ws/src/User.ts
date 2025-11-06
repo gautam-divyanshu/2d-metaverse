@@ -18,6 +18,7 @@ function getRandomString(length: number) {
 export class User {
   public id: string;
   public userId?: string;
+  public avatarUrl?: string;
   private spaceId?: string;
   private mapId?: string;
   private roomType?: 'space' | 'map';
@@ -75,6 +76,16 @@ export class User {
 
           this.userId = userId;
 
+          // Fetch user avatar
+          const user = await client.user.findUnique({
+            where: { id: parseInt(userId) },
+            include: { avatar: true },
+          });
+
+          if (user?.avatar) {
+            this.avatarUrl = user.avatar.imageUrl;
+          }
+
           // Handle space joining
           if (spaceId) {
             const space = await client.space.findFirst({
@@ -124,6 +135,7 @@ export class User {
                   y: this.y,
                 },
                 userId: this.userId,
+                avatarUrl: this.avatarUrl,
                 users:
                   RoomManager.getInstance()
                     .rooms.get(`space_${spaceId}`)
@@ -133,6 +145,7 @@ export class User {
                       userId: u.userId,
                       x: u.x,
                       y: u.y,
+                      avatarUrl: u.avatarUrl,
                     })) ?? [],
                 messages: messages,
               },
@@ -145,10 +158,11 @@ export class User {
                   userId: this.userId,
                   x: this.x,
                   y: this.y,
+                  avatarUrl: this.avatarUrl,
                 },
               },
               this,
-              `space_${this.spaceId}`
+              `space_${spaceId}`
             );
           }
 
@@ -228,6 +242,7 @@ export class User {
                   y: this.y,
                 },
                 userId: this.userId,
+                avatarUrl: this.avatarUrl,
                 users:
                   RoomManager.getInstance()
                     .rooms.get(`map_${mapId}`)
@@ -237,6 +252,7 @@ export class User {
                       userId: u.userId,
                       x: u.x,
                       y: u.y,
+                      avatarUrl: u.avatarUrl,
                     })) ?? [],
                 messages: messages,
               },
@@ -249,6 +265,7 @@ export class User {
                   userId: this.userId,
                   x: this.x,
                   y: this.y,
+                  avatarUrl: this.avatarUrl,
                 },
               },
               this,

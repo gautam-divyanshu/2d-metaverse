@@ -50,6 +50,14 @@ body {
   background: #555;
 }
 
+/* Pixelated image rendering for sprites */
+.pixelated {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 /* Smooth animations */
 * {
   transition: all 0.2s ease-in-out;

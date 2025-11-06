@@ -3,6 +3,8 @@ export interface User {
   x: number;
   y: number;
   avatarId?: number;
+  avatarUrl?: string;
+  direction?: 'up' | 'down' | 'left' | 'right';
 }
 
 export interface CurrentUser {

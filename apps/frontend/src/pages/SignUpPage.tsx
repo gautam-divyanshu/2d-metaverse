@@ -4,17 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-interface Avatar {
-  id: string;
-  name: string;
-  imageUrl: string;
-}
-
 export const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [avatars, setAvatars] = useState<Avatar[]>([]);
-  const [selectedAvatar, setSelectedAvatar] = useState<string>('');
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -30,27 +22,6 @@ export const SignUpPage = () => {
       navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, authLoading, navigate]);
-
-  // Fetch available avatars
-  useEffect(() => {
-    const fetchAvatars = async () => {
-      try {
-        const response = await fetch(
-          'http://localhost:3000/api/v1/maps/avatars'
-        );
-        const data = await response.json();
-        if (response.ok) {
-          setAvatars(data.avatars);
-          if (data.avatars.length > 0) {
-            setSelectedAvatar(data.avatars[0].id.toString());
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch avatars:', err);
-      }
-    };
-    fetchAvatars();
-  }, []);
 
   // Show loading while auth is being checked
   if (authLoading) {
@@ -73,6 +44,13 @@ export const SignUpPage = () => {
       return;
     }
 
+    // Validate form data
+    if (!formData.username.trim() || !formData.password) {
+      setError('Username and password are required');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:3000/api/v1/auth/signup', {
         method: 'POST',
@@ -82,49 +60,22 @@ export const SignUpPage = () => {
         body: JSON.stringify({
           username: formData.username,
           password: formData.password,
-          type: 'user', // Default to regular user
-          ...(selectedAvatar && { avatarId: selectedAvatar }), // Only include if avatar is selected
+          type: 'user',
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Auto sign-in after successful signup
-        const signinResponse = await fetch(
-          'http://localhost:3000/api/v1/auth/signin',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              username: formData.username,
-              password: formData.password,
-            }),
-          }
-        );
-
-        const signinData = await signinResponse.json();
-
-        if (signinResponse.ok) {
-          localStorage.setItem('token', signinData.token);
-          localStorage.setItem(
-            'user',
-            JSON.stringify({
-              id: signinData.userId,
-              username: formData.username,
-              role: signinData.role,
-              avatarId: signinData.avatarId,
-            })
-          );
-          navigate('/dashboard');
-        } else {
-          // If auto-signin fails, redirect to signin page
-          navigate('/signin');
-        }
+        // Navigate to avatar selection with user data
+        navigate('/avatar-selection', {
+          state: {
+            userId: data.userId,
+            username: formData.username,
+          },
+        });
       } else {
-        setError(data.error || 'Failed to create account');
+        setError(data.message || 'Failed to create account');
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -256,41 +207,6 @@ export const SignUpPage = () => {
               />
             </div>
 
-            {/* Avatar Selection */}
-            {avatars.length > 0 && (
-              <div>
-                <label className="block text-white/80 text-sm font-medium mb-3">
-                  Choose Your Avatar
-                </label>
-                <div className="grid grid-cols-4 gap-3">
-                  {avatars.slice(0, 8).map((avatar) => (
-                    <button
-                      key={avatar.id}
-                      type="button"
-                      onClick={() => setSelectedAvatar(avatar.id.toString())}
-                      className={`
-                        relative p-2 rounded-lg border-2 transition-all duration-200
-                        ${
-                          selectedAvatar === avatar.id.toString()
-                            ? 'border-blue-400 bg-blue-500/20'
-                            : 'border-white/20 bg-white/5 hover:border-white/40'
-                        }
-                      `}
-                    >
-                      <img
-                        src={avatar.imageUrl}
-                        alt={avatar.name}
-                        className="w-full h-12 object-cover rounded"
-                      />
-                      <p className="text-xs text-white/70 mt-1 truncate">
-                        {avatar.name}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={isLoading}
@@ -306,7 +222,7 @@ export const SignUpPage = () => {
                   Creating Account...
                 </>
               ) : (
-                'Create Account'
+                'Continue to Avatar Selection'
               )}
             </button>
           </form>

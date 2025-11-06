@@ -8,7 +8,6 @@ export interface SignupData {
   username: string;
   password: string;
   type: 'user' | 'admin';
-  avatarId?: string;
 }
 
 export interface SigninData {
@@ -29,9 +28,6 @@ export async function signup(userData: SignupData) {
       username: parsedData.data.username,
       password: hashedPassword,
       role: parsedData.data.type === 'admin' ? 'admin' : 'user',
-      avatarId: parsedData.data.avatarId
-        ? parseInt(parsedData.data.avatarId)
-        : undefined,
     },
   });
 
@@ -46,6 +42,9 @@ export async function signin(credentials: SigninData) {
 
   const user = await client.user.findUnique({
     where: { username: parsedData.data.username },
+    include: {
+      avatar: true,
+    },
   });
 
   if (!user) {
@@ -61,8 +60,17 @@ export async function signin(credentials: SigninData) {
 
   return {
     token,
-    userId: user.id.toString(),
-    role: user.role,
-    avatarId: user.avatarId,
+    user: {
+      id: user.id.toString(),
+      username: user.username,
+      role: user.role,
+      avatar: user.avatar
+        ? {
+            id: user.avatar.id.toString(),
+            name: user.avatar.name,
+            imageUrl: user.avatar.imageUrl,
+          }
+        : null,
+    },
   };
 }
