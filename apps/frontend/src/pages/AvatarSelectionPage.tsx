@@ -19,18 +19,19 @@ export const AvatarSelectionPage: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, token, user } = useAuth();
 
-  // Get user data from signup page
+  // Get user data from signup page or check if user is already authenticated (from profile)
   const userData = location.state;
 
   useEffect(() => {
-    if (!userData) {
+    // Allow if userData (from signup) OR user is already authenticated (from profile)
+    if (!userData && !user) {
       navigate('/signup', { replace: true });
       return;
     }
     loadAvatarData();
-  }, [userData, navigate]);
+  }, [userData, user, navigate]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -167,40 +168,67 @@ export const AvatarSelectionPage: React.FC = () => {
   };
 
   const handleContinue = async () => {
-    if (!selectedAvatar || !userData) return;
+    if (!selectedAvatar) return;
 
     try {
       setIsLoading(true);
 
-      // Update user avatar
-      const response = await fetch(
-        'http://localhost:3000/api/v1/avatars/user',
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: userData.userId,
-            avatarId: selectedAvatar.id,
-          }),
+      // Check if this is post-signup flow (userData exists) or profile flow (user already authenticated)
+      if (userData) {
+        // Post-signup flow: create new user with avatar selection
+        const response = await fetch(
+          'http://localhost:3000/api/v1/avatars/user',
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: userData.userId,
+              avatarId: selectedAvatar.id,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to update avatar');
         }
-      );
 
-      const data = await response.json();
+        // Update auth context and navigate to dashboard
+        login(data.token, {
+          id: data.user.id,
+          username: data.user.username,
+          role: data.user.role,
+          avatarId: data.user.avatar?.id,
+        });
+        navigate('/dashboard', { replace: true });
+      } else if (user) {
+        // Profile flow: update existing user's avatar
+        const response = await fetch(
+          'http://localhost:3000/api/v1/user/avatar-info',
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              avatarId: selectedAvatar.id,
+            }),
+          }
+        );
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update avatar');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to update avatar');
+        }
+
+        // Navigate back to profile
+        navigate('/profile', { replace: true });
       }
-
-      // Update auth context and navigate to dashboard
-      login(data.token, {
-        id: data.user.id,
-        username: data.user.username,
-        role: data.user.role,
-        avatarId: data.user.avatar?.id,
-      });
-      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to update avatar');
     } finally {
@@ -227,7 +255,7 @@ export const AvatarSelectionPage: React.FC = () => {
         <div className="flex items-center justify-between p-6 border-b border-white/20">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate(userData ? '/signup' : '/profile')}
               className="p-2 rounded-lg hover:bg-white/10 transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-white" />
@@ -236,7 +264,7 @@ export const AvatarSelectionPage: React.FC = () => {
               Choose Your Avatar
             </h1>
           </div>
-          <div className="text-sm text-white/70">Step 2 of 2</div>
+          {userData && <div className="text-sm text-white/70">Step 2 of 2</div>}
         </div>
 
         {error && (
@@ -351,7 +379,7 @@ export const AvatarSelectionPage: React.FC = () => {
         <div className="p-6 border-t border-white/20">
           <div className="flex justify-between">
             <button
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate(userData ? '/signup' : '/profile')}
               className="px-6 py-3 text-white/70 hover:text-white transition-colors"
             >
               Back
@@ -364,12 +392,21 @@ export const AvatarSelectionPage: React.FC = () => {
               {isLoading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                  Creating Account...
+                  {userData ? 'Creating Account...' : 'Saving Avatar...'}
                 </>
               ) : (
                 <>
-                  Continue to Dashboard
-                  <ChevronRight className="w-4 h-4" />
+                  {userData ? (
+                    <>
+                      Continue to Dashboard
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  ) : (
+                    <>
+                      Save Avatar
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
                 </>
               )}
             </button>

@@ -107,6 +107,63 @@ export const MapViewPhaser = () => {
     }
   }, [map, user]);
 
+  // Handle sidebar toggle resize
+  useEffect(() => {
+    if (gameInstance.current && gameRef.current) {
+      // Small delay to ensure DOM has updated after sidebar toggle
+      setTimeout(() => {
+        const container = gameRef.current;
+        if (container) {
+          gameInstance.current!.scale.resize(
+            container.clientWidth,
+            container.clientHeight
+          );
+        }
+      }, 50);
+    }
+  }, [isSidebarOpen]);
+
+  // Adjust renderer, canvas style and camera viewport when sidebar toggles.
+  // IMPORTANT: do NOT override camera bounds (map size) here — overriding
+  // bounds causes the camera to clip and prevents showing remaining map area.
+  useEffect(() => {
+    if (!gameInstance.current || !gameRef.current) return;
+    const container = gameRef.current;
+    // Wait for the layout transition to complete before resizing
+    const id = window.setTimeout(() => {
+      if (!gameInstance.current || !container) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+
+      // Resize Phaser scale & renderer
+      try {
+        gameInstance.current.scale.resize(w, h);
+        // Some Phaser builds expose renderer.resize
+        if ((gameInstance.current as any).renderer?.resize) {
+          (gameInstance.current as any).renderer.resize(w, h);
+        }
+      } catch (e) {
+        // ignore any resize errors
+      }
+
+      // Ensure canvas fills its parent (prevents leftover black gutter)
+      if (gameInstance.current.canvas) {
+        gameInstance.current.canvas.style.width = '100%';
+        gameInstance.current.canvas.style.height = '100%';
+      }
+
+      // Adjust camera viewport to match new canvas size but KEEP bounds = map size
+      const scene = gameInstance.current.scene.getScene('GameScene') as any;
+      if (scene && scene.cameras && scene.cameras.main) {
+        scene.cameras.main.setViewport(0, 0, w, h);
+      }
+    }, 120); // slightly larger delay to allow CSS transition
+
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [isSidebarOpen]);
+
   // WebSocket connection
   const wsRef = useWebSocket({
     mapId: mapId!,

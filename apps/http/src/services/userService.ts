@@ -431,3 +431,154 @@ export async function removeSpaceFromMap(
 
   return { message: 'Space removed from map' };
 }
+
+// Get user profile data
+export async function getUserProfile(userId: number) {
+  const user = await client.user.findUnique({
+    where: { id: userId },
+    include: {
+      avatar: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Get stats
+  const spacesCreated = await client.space.count({
+    where: { ownerId: userId },
+  });
+  const mapsCreated = await client.map.count({ where: { creatorId: userId } });
+  const elementsCreated = await client.element.count({
+    where: { creatorId: userId },
+  });
+
+  // Get activity (visits in last 7 days)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const activityLast7Days = await client.userMapVisit.count({
+    where: {
+      userId,
+      visitedAt: { gte: sevenDaysAgo },
+    },
+  });
+
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    avatarId: user.avatarId,
+    avatarName: null, // User model doesn't have avatarName field
+    avatar: user.avatar
+      ? {
+          id: user.avatar.id,
+          imageUrl: user.avatar.imageUrl,
+          name: user.avatar.name,
+        }
+      : null,
+    createdAt: new Date(), // Use current date as User model doesn't have createdAt
+    activityLast7Days,
+    stats: {
+      spacesCreated,
+      mapsCreated,
+      elementsCreated,
+    },
+  };
+}
+
+// Update user password
+export async function updateUserPassword(
+  userId: number,
+  currentPassword: string,
+  newPassword: string
+) {
+  const { compare } = await import('../scrypt.js');
+  const { hash } = await import('../scrypt.js');
+
+  const user = await client.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const isValid = await compare(currentPassword, user.password);
+  if (!isValid) {
+    throw new Error('Current password is incorrect');
+  }
+
+  const hashedPassword = await hash(newPassword);
+  await client.user.update({
+    where: { id: userId },
+    data: { password: hashedPassword },
+  });
+
+  return { message: 'Password updated successfully' };
+}
+
+// Update avatar info (avatar selection and avatar name)
+export async function updateAvatarInfo(
+  userId: number,
+  avatarId?: string,
+  avatarName?: string
+) {
+  const updateData: any = {};
+
+  if (avatarId) {
+    updateData.avatarId = parseInt(avatarId);
+  }
+
+  const user = await client.user.update({
+    where: { id: userId },
+    data: updateData,
+    include: {
+      avatar: true,
+    },
+  });
+
+  return {
+    message: 'Avatar updated successfully',
+    avatar: user.avatar
+      ? {
+          id: user.avatar.id,
+          imageUrl: user.avatar.imageUrl,
+          name: user.avatar.name,
+        }
+      : null,
+  };
+}
+
+// Delete user account
+export async function deleteUserAccount(userId: number) {
+  // Delete all user's related data
+  await client.userMapVisit.deleteMany({ where: { userId } });
+
+  // Delete user's maps
+  const userMaps = await client.map.findMany({
+    where: { creatorId: userId },
+  });
+
+  for (const map of userMaps) {
+    // Delete map elements and spaces
+    await client.mapElement.deleteMany({ where: { mapId: map.id } });
+    await client.mapSpace.deleteMany({ where: { mapId: map.id } });
+  }
+
+  await client.map.deleteMany({ where: { creatorId: userId } });
+
+  // Delete user's spaces
+  await client.space.deleteMany({ where: { ownerId: userId } });
+
+  // Delete user's elements
+  await client.element.deleteMany({ where: { creatorId: userId } });
+
+  // Delete the user
+  await client.user.delete({
+    where: { id: userId },
+  });
+
+  return { message: 'Account deleted successfully' };
+}

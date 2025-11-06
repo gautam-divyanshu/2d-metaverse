@@ -11,6 +11,7 @@ import { SpaceEditorPage } from './pages/SpaceEditorPage';
 import { MapViewPhaser } from './pages/MapViewPhaser';
 import { MapEditorPage } from './pages/MapEditorPage';
 import { AdminPanelPage } from './pages/AdminPanelPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 function App() {
   return (
@@ -73,6 +74,14 @@ function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminPanelPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />
