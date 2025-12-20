@@ -9,7 +9,7 @@ import { NewDashboardPage } from './pages/NewDashboardPage';
 import { SpaceViewPage } from './pages/SpaceViewPage';
 import { SpaceEditorPage } from './pages/SpaceEditorPage';
 import { MapViewPhaser } from './pages/MapViewPhaser';
-import { MapEditorPage } from './pages/MapEditorPage';
+import { TiledMapEditor as MapEditorPage } from './pages/TiledMapEditor';
 import { AdminPanelPage } from './pages/AdminPanelPage';
 import { ProfilePage } from './pages/ProfilePage';
 

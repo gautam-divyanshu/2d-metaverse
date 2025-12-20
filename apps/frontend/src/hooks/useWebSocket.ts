@@ -11,6 +11,17 @@ interface UseWebSocketProps {
   setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   setError: Dispatch<SetStateAction<string>>;
   gameReady: boolean; // Only connect when game is ready
+  // Video call handlers (WorkAdventure style)
+  onVideoJoinRequest?: (payload: any) => void;
+  onVideoJoinAccepted?: (payload: any) => void;
+  onVideoJoinDeclined?: (payload: any) => void;
+  onVideoJoin?: (payload: any) => void;
+  onVideoLeave?: (payload: any) => void;
+  onVideoOffer?: (payload: any) => void;
+  onVideoAnswer?: (payload: any) => void;
+  onVideoIceCandidate?: (payload: any) => void;
+  onVideoMediaState?: (payload: any) => void;
+  onVideoKick?: (payload: any) => void;
 }
 
 export function useWebSocket({
@@ -22,6 +33,16 @@ export function useWebSocket({
   setChatMessages,
   setError,
   gameReady,
+  onVideoJoinRequest,
+  onVideoJoinAccepted,
+  onVideoJoinDeclined,
+  onVideoJoin,
+  onVideoLeave,
+  onVideoOffer,
+  onVideoAnswer,
+  onVideoIceCandidate,
+  onVideoMediaState,
+  onVideoKick,
 }: UseWebSocketProps) {
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -70,6 +91,7 @@ export function useWebSocket({
               const userIdString = String(u.userId);
               userMap.set(userIdString, {
                 id: userIdString,
+                username: u.username,
                 x: u.x || 0,
                 y: u.y || 0,
                 avatarUrl: u.avatarUrl,
@@ -79,7 +101,8 @@ export function useWebSocket({
                 userIdString,
                 u.x,
                 u.y,
-                u.avatarUrl
+                u.avatarUrl,
+                u.username
               );
             }
           });
@@ -94,6 +117,7 @@ export function useWebSocket({
             if (!newUsers.has(joinedUserId)) {
               newUsers.set(joinedUserId, {
                 id: joinedUserId,
+                username: message.payload.username,
                 x: message.payload.x || 0,
                 y: message.payload.y || 0,
                 avatarUrl: message.payload.avatarUrl,
@@ -106,7 +130,8 @@ export function useWebSocket({
             joinedUserId,
             message.payload.x,
             message.payload.y,
-            message.payload.avatarUrl
+            message.payload.avatarUrl,
+            message.payload.username
           );
           break;
 
@@ -186,9 +211,77 @@ export function useWebSocket({
               displayName: message.payload.displayName,
               text: message.payload.text,
               createdAt: message.payload.createdAt,
+              taggedUsers: message.payload.taggedUsers,
             },
           ]);
           break;
+
+        case 'video-join-request':
+          console.log(
+            '[WebSocket] Received video-join-request:',
+            message.payload
+          );
+          if (onVideoJoinRequest) onVideoJoinRequest(message.payload);
+          break;
+
+        case 'video-join-accepted':
+          console.log(
+            '[WebSocket] Received video-join-accepted:',
+            message.payload
+          );
+          if (onVideoJoinAccepted) onVideoJoinAccepted(message.payload);
+          break;
+
+        case 'video-join-declined':
+          console.log(
+            '[WebSocket] Received video-join-declined:',
+            message.payload
+          );
+          if (onVideoJoinDeclined) onVideoJoinDeclined(message.payload);
+          break;
+
+        case 'video-join':
+          console.log('[WebSocket] Received video-join:', message.payload);
+          if (onVideoJoin) onVideoJoin(message.payload);
+          break;
+
+        case 'video-leave':
+          console.log('[WebSocket] Received video-leave:', message.payload);
+          if (onVideoLeave) onVideoLeave(message.payload);
+          break;
+
+        case 'video-offer':
+          console.log('[WebSocket] Received video-offer:', message.payload);
+          if (onVideoOffer) onVideoOffer(message.payload);
+          break;
+
+        case 'video-answer':
+          console.log('[WebSocket] Received video-answer:', message.payload);
+          if (onVideoAnswer) onVideoAnswer(message.payload);
+          break;
+
+        case 'video-ice-candidate':
+          console.log(
+            '[WebSocket] Received video-ice-candidate:',
+            message.payload
+          );
+          if (onVideoIceCandidate) onVideoIceCandidate(message.payload);
+          break;
+
+        case 'video-media-state':
+          console.log(
+            '[WebSocket] Received video-media-state:',
+            message.payload
+          );
+          if (onVideoMediaState) onVideoMediaState(message.payload);
+          break;
+
+        case 'video-kick':
+          console.log('[WebSocket] Received video-kick:', message.payload);
+          if (onVideoKick) onVideoKick(message.payload);
+          break;
+
+        // Add other video call message types as needed
       }
     };
 
