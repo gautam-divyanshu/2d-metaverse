@@ -27,15 +27,22 @@ export class GameScene extends Phaser.Scene {
     moving: boolean;
   } = { x: -1, y: -1, direction: 'down', moving: false };
   private playerDirection: 'up' | 'down' | 'left' | 'right' = 'down';
+  private tmjUrl: string | null = null;
 
   constructor(onMovement: (x: number, y: number) => void) {
     super({ key: 'GameScene' });
     this.onMovement = onMovement;
   }
 
+  setTmjUrl(url: string | null) {
+    this.tmjUrl = url;
+  }
+
   preload() {
-    // Load Tiled map JSON
-    this.load.tilemapTiledJSON('map', '/office.tmj');
+    // Load Tiled map JSON - use dynamic URL if available, otherwise fallback to office.tmj
+    const mapUrl = this.tmjUrl || '/office.tmj';
+    console.log(`Loading TMJ map from: ${mapUrl}`);
+    this.load.tilemapTiledJSON('map', mapUrl);
 
     // Load tileset images with proper filtering for pixel art
     const tilesets = [
@@ -668,7 +675,8 @@ export class GameScene extends Phaser.Scene {
     userId: string | number,
     x: number,
     y: number,
-    avatarUrl?: string
+    avatarUrl?: string,
+    username?: string
   ) {
     const userIdString = String(userId);
 
@@ -696,7 +704,13 @@ export class GameScene extends Phaser.Scene {
         this.load.image(avatarKey, avatarUrl);
         this.load.once('complete', () => {
           console.log(`Other player avatar loaded successfully: ${avatarKey}`);
-          this.createPlayerSprite(userIdString, worldX, worldY, avatarKey);
+          this.createPlayerSprite(
+            userIdString,
+            worldX,
+            worldY,
+            avatarKey,
+            username
+          );
         });
         this.load.once('loaderror', () => {
           console.error(
@@ -704,12 +718,24 @@ export class GameScene extends Phaser.Scene {
           );
           // Fallback to colored avatar
           const fallbackKey = getAvatarKey(userIdString);
-          this.createPlayerSprite(userIdString, worldX, worldY, fallbackKey);
+          this.createPlayerSprite(
+            userIdString,
+            worldX,
+            worldY,
+            fallbackKey,
+            username
+          );
         });
         this.load.start();
       } else {
         console.log(`Other player avatar already exists: ${avatarKey}`);
-        this.createPlayerSprite(userIdString, worldX, worldY, avatarKey);
+        this.createPlayerSprite(
+          userIdString,
+          worldX,
+          worldY,
+          avatarKey,
+          username
+        );
       }
     } else {
       // Fallback to colored avatar
@@ -722,7 +748,13 @@ export class GameScene extends Phaser.Scene {
         console.error(`Texture ${avatarKey} does not exist!`);
         return;
       }
-      this.createPlayerSprite(userIdString, worldX, worldY, avatarKey);
+      this.createPlayerSprite(
+        userIdString,
+        worldX,
+        worldY,
+        avatarKey,
+        username
+      );
     }
   }
 
@@ -730,7 +762,8 @@ export class GameScene extends Phaser.Scene {
     userIdString: string,
     worldX: number,
     worldY: number,
-    textureKey: string
+    textureKey: string,
+    username?: string
   ) {
     const texture = this.textures.get(textureKey);
 
@@ -810,7 +843,7 @@ export class GameScene extends Phaser.Scene {
       const nameText = this.add.text(
         worldX,
         worldY - 20,
-        `User ${userIdString}`,
+        username || `User ${userIdString}`,
         {
           fontFamily: 'Arial, sans-serif',
           fontSize: '12px',
@@ -852,13 +885,12 @@ export class GameScene extends Phaser.Scene {
       const nameText = this.add.text(
         worldX,
         worldY - 20,
-        `User ${userIdString}`,
+        username || `User ${userIdString}`,
         {
           fontFamily: 'Arial, sans-serif',
           fontSize: '12px',
-          color: '#ffffff',
-          backgroundColor: '#000000',
-          padding: { x: 6, y: 3 },
+          color: '#000000',
+          fontStyle: 'bold',
           resolution: 2,
         }
       );
